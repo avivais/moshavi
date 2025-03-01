@@ -20,7 +20,6 @@ export default function Nav() {
                     </Link>
                 </li>
                 <div className="flex space-x-4 mt-4 md:mt-0">
-                    <li><Link href="/">Home</Link></li>
                     <li><Link href="/paybox">Donate</Link></li>
                     <li><Link href="/sets">Sets</Link></li>
                     <li><Link href="/music">Music</Link></li>
