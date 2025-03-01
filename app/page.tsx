@@ -1,10 +1,17 @@
+import Image from "next/image";
+
 export default function Home() {
     return (
         <main className="min-h-screen flex flex-col items-center p-4">
             {/* Logo */}
             <div className="my-4">
-                <h1 className="text-4xl font-bold text-neon-green">MoshAvi Productions</h1>
-                {/* Swap with your logo: <img src="/logo.png" alt="MoshAvi Logo" className="h-16" /> */}
+                <Image
+                    src="/media/logo/logo.svg"
+                    alt="MoshAvi Productions Logo"
+                    width={256}
+                    height={256}
+                    className="h-16"
+                />
             </div>
 
             {/* Latest Invitation */}
