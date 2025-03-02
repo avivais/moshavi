@@ -16,7 +16,7 @@ export default function Nav() {
                         alt="MoshAvi Productions Logo"
                         width={32}
                         height={32}
-                        className="h-16 mr-1"
+                        className="mr-1"
                     />
                     <span className="text-white font-poiret-one font-bold text-3xl leading-none">
                         MOSHAVI
