@@ -2,7 +2,7 @@ import Image from "next/image";
 
 export default function Home() {
     return (
-        <main className="min-h-screen flex flex-col items-center p-4">
+        <main className="min-h-screen flex flex-col items-center">
             {/* Logo */}
             <div className="my-4">
                 <Image
@@ -21,7 +21,7 @@ export default function Home() {
             </section>
 
             {/* Carousel Placeholder */}
-            <section className="w-full max-w-md mb-6">
+            <section className="w-full max-w-lg mb-6">
                 <div className="h-48 bg-gray-800 flex items-center justify-center">
                     <p>Image Carousel (Add your pics!)</p>
                 </div>
