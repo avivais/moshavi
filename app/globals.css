@@ -2,27 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-    --background: #ffffff;
-    --foreground: #171717;
-}
-
-@media (prefers-color-scheme: dark) {
-    :root {
-        --background: #0a0a0a;
-        --foreground: #ededed;
-    }
-}
-
-body {
-    color: var(--foreground);
-    background: var(--background);
-    font-family: Arial, Helvetica, sans-serif;
-}
-
+/* Import Google Fonts for Poiret One (if using CDN, otherwise use next/font/google) */
 @import url('https://fonts.googleapis.com/css2?family=Poiret+One&display=swap');
 
+/* Define custom font class for Poiret One */
 .font-poiret-one {
     font-family: 'Poiret One', sans-serif;
     font-weight: bold;
+}
+
+/* Customize carousel dots */
+.slick-dots {
+    display: flex !important;
+    justify-content: center;
+    position: absolute !important;
+    bottom: 1rem !important;
+    width: 100% !important;
+    padding: 0 !important;
+    list-style: none !important;
+}
+
+.slick-dots li {
+    margin: 0 !important;
+}
+
+.slick-dots li button:before {
+    color: white !important;
+    font-size: 8px !important;
+    opacity: 0.5 !important;
+}
+
+.slick-dots li.slick-active button:before {
+    color: white !important;
+    opacity: 1 !important;
+}
+
+/* Remove all outlines and borders on focus for carousel images and wrappers */
+.slick-slide,
+.slick-slide img,
+.slick-slide div {
+    outline: none !important;
+    border: none !important;
+}
+
+/* Optional: Add spacing between slides */
+.slick-slide {
+    padding: 0 0.5rem;
+}
+
+/* Ensure dark-mode consistency (already set in layout.tsx, but for completeness) */
+body {
+    background-color: #000000;
+    color: #ffffff;
 }
