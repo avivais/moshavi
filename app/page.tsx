@@ -28,25 +28,15 @@ export default function Home() {
     }
 
     return (
-        <main className="min-h-screen flex flex-col items-center p-4">
-            <div className="my-4">
-                <Image
-                    src="/media/logo/logo.svg"
-                    alt="MoshAvi Productions Logo"
-                    width={32}
-                    height={32}
-                    className="h-8"
-                />
-            </div>
-
-            <section className="mb-6 text-center">
-                <h2 className="text-2xl">Next Party: [Your Date]</h2>
-                <p className="text-gray-300">[Your Invite Text]</p>
+        <main className="min-h-screen flex flex-col items-center p-0">
+            <section className="mb-6 text-center px-4">
+                <h2 className="text-2xl font-spicy-rice">Purim @ MoshAvi</h2>
+                <p className="text-gray-300">13.3.2025</p>
             </section>
 
-            <section className="w-full max-w-md mb-6">
-                <div className="relative">
-                    <Slider key={Math.random()} {...carouselSettings}>
+            <section className="w-screen mb-6">
+                <div className="relative md:max-w-2xl mx-auto">
+                    <Slider {...carouselSettings}>
                         <div key="slide1">
                             <Image
                                 src="/media/carousel/party-pic-1.jpg"
@@ -78,7 +68,7 @@ export default function Home() {
                 </div>
             </section>
 
-            <section className="mb-6 w-full max-w-md">
+            <section className="mb-6 w-full max-w-md md:max-w-2xl mx-auto px-4">
                 <h3 className="text-xl">Latest Set</h3>
                 <audio controls className="w-full mt-2">
                     <source src="[Your Audio URL]" type="audio/mp3" />
@@ -86,12 +76,14 @@ export default function Home() {
                 </audio>
             </section>
 
-            <a
-                href="/paybox"
-                className="bg-neon-green text-black px-6 py-3 rounded-lg font-semibold hover:bg-green-400 transition"
-            >
-                Support the Party
-            </a>
+            <div className="px-4">
+                <a
+                    href="/paybox"
+                    className="bg-neon-green text-black px-6 py-3 rounded-lg font-semibold hover:bg-green-400 transition"
+                >
+                    Support the Party
+                </a>
+            </div>
         </main>
     )
 }

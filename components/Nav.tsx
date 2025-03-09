@@ -1,4 +1,4 @@
-'use client' // Add this at the top for client-side interactivity
+'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -8,18 +8,18 @@ export default function Nav() {
     const [isOpen, setIsOpen] = useState(false)
 
     return (
-        <nav className="w-full bg-black p-4 fixed top-0 left-0 z-10">
-            <div className="flex justify-between items-center">
-                <Link href="/" className="flex items-center">
+        <nav className="w-full bg-black p-2 fixed top-0 left-0 z-10">
+            <div className="flex justify-between items-center max-w-md md:max-w-2xl mx-auto">
+                <Link href="/" className="flex items-center space-x-2">
                     <Image
                         src="/media/logo/logo.svg"
                         alt="MoshAvi Productions Logo"
                         width={32}
                         height={32}
-                        className="mr-1"
+                        className="h-8"
                     />
-                    <span className="text-white font-poiret-one font-bold text-3xl leading-none">
-                        MOSHAVI
+                    <span className="text-white font-poiret-one font-bold text-xl leading-none">
+                        MoshAvi
                     </span>
                 </Link>
                 <div className="md:hidden">
@@ -44,7 +44,7 @@ export default function Nav() {
                     </button>
                 </div>
                 <ul
-                    className={`md:hidden fixed top-16 left-0 w-full bg-black transition-all duration-300 ease-in-out ${
+                    className={`md:hidden fixed top-12 left-0 w-full bg-black transition-all duration-300 ease-in-out ${
                         isOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
                     } overflow-hidden`}
                 >

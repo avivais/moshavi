@@ -23,7 +23,7 @@
 }
 
 .slick-dots li {
-    margin: 0 !important;
+    margin: 0 0.1rem;
 }
 
 .slick-dots li button:before {
@@ -45,9 +45,20 @@
     border: none !important;
 }
 
-/* Optional: Add spacing between slides */
+/* Override react-slick default padding to ensure full-width on mobile */
+.slick-list {
+    padding: 0 !important;
+}
+
+/* Remove slide padding on mobile, keep on desktop */
 .slick-slide {
-    padding: 0 0.5rem;
+    padding: 0 !important;
+}
+
+@media (min-width: 768px) {
+    .slick-slide {
+        padding: 0 0.5rem !important;
+    }
 }
 
 /* Ensure dark-mode consistency (already set in layout.tsx, but for completeness) */
