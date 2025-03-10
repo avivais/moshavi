@@ -29,9 +29,9 @@ export default function Home() {
 
     return (
         <main className="min-h-screen flex flex-col items-center p-0">
-            <section className="mb-6 text-center px-4">
-                <h2 className="text-2xl font-spicy-rice">Purim @ MoshAvi</h2>
-                <p className="text-gray-300">13.3.2025</p>
+            <section className="mb-4 text-center px-4 font-spicy-rice">
+                <h2 className="text-2xl">Purim @ MoshAvi</h2>
+                <p className="text-xl">13.3.2025</p>
             </section>
 
             <section className="w-screen mb-6">

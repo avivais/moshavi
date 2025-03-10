@@ -2,13 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import Google Fonts for Poiret One (if using CDN, otherwise use next/font/google) */
-@import url('https://fonts.googleapis.com/css2?family=Poiret+One&display=swap');
+/* Import Google Fonts for Poiret One and Spicy Rice */
+@import url('https://fonts.googleapis.com/css2?family=Poiret+One&family=Spicy+Rice&display=swap');
 
-/* Define custom font class for Poiret One */
+/* Define custom font classes */
 .font-poiret-one {
     font-family: 'Poiret One', sans-serif;
     font-weight: bold;
+}
+
+.font-spicy-rice {
+    font-family: 'Spicy Rice', cursive;
+    font-weight: normal; /* Spicy Rice is naturally bold, so normal works */
 }
 
 /* Customize carousel dots */
