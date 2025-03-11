@@ -68,9 +68,11 @@ export default function Home() {
                 </div>
             </section>
 
-            <div className="px-4">
+            <div className="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4 px-6">
                 <a
-                    href="/support-us"
+                    href="https://your-payment-link.com" // Replace with actual payment link
+                    target="_blank"
+                    rel="noopener noreferrer"
                     className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition"
                 >
                     Support Us
