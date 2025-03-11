@@ -29,14 +29,20 @@ export default function SupportUs() {
                     />
                 </div>
 
-                <div className="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4 px-6">
+                <p className="font-karantina mb-6 text-6xl md:text-8xl">
+                    <span className="font-bold">תרקדו</span> כאילו <span className="font-bold">אין</span> מחר
+                    <br />
+                    <span className="font-bold">תתרמו</span> כאילו <span className="font-bold">יש</span> עלויות
+                </p>
+
+                <div className="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4 px-24">
                     <a
                         href="https://your-payment-link.com" // Replace with actual payment link
                         target="_blank"
                         rel="noopener noreferrer"
                         className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition"
                     >
-                        Donate Now
+                        PayBox
                     </a>
                 </div>
             </section>
