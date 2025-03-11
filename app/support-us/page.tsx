@@ -37,55 +37,70 @@ export default function SupportUs() {
 
                 <div className="flex justify-center">
                     <div className="w-full max-w-md">
-                        <div className="flex flex-col md:flex-row justify-center space-y-8 md:space-y-0 md:space-x-4 mb-6 text-xl">
+                        <div className="flex flex-col md:flex-row justify-center space-y-6 md:space-y-0 md:space-x-4 mb-6 text-xl">
                             {/* PayBox Button */}
-                            <a
-                                href="https://payboxapp.page.link/vT1bQQiMiiiXHZz49" // Replace with actual PayBox link
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
-                            >
-                                <div className="w-8 h-8"> {/* Placeholder for PayBox logo */}
-                                    <Image src="/media/logo/paybox.png" width={32} height={32} alt="PayBox Logo" />
-                                </div>
-                                <span>PayBox</span>
-                            </a>
+                            <div className="flex flex-col items-center">
+                                <a
+                                    href="https://payboxapp.page.link/vT1bQQiMiiiXHZz49" // Replace with actual PayBox link
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
+                                >
+                                    <div className="w-8 h-8"> {/* Placeholder for PayBox logo */}
+                                        <Image src="/media/logo/paybox.png" width={32} height={32} alt="PayBox Logo" />
+                                    </div>
+                                    <span>PayBox</span>
+                                </a>
+                                <span className="text-xs mt-1 text-gray-400" dir="rtl">בדיקת סאונד&nbsp;&nbsp;🎤</span>
+                            </div>
+
                             {/* Bit 50 ₪ Button */}
-                            <a
-                                href="https://www.bitpay.co.il/app/share-info?i=172411035573_19kH1D8L" // Replace with actual Bit link for 50 ₪
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
-                            >
-                                <div className="w-8 h-8"> {/* Placeholder for Bit logo */}
-                                    <Image src="/media/logo/bit.png" width={32} height={32} alt="Bit Logo" />
-                                </div>
-                                <span>50 ₪</span>
-                            </a>
+                            <div className="flex flex-col items-center">
+                                <a
+                                    href="https://www.bitpay.co.il/app/share-info?i=172411035573_19kH1D8L" // Replace with actual Bit link for 50 ₪
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
+                                >
+                                    <div className="w-8 h-8"> {/* Placeholder for Bit logo */}
+                                        <Image src="/media/logo/bit.png" width={32} height={32} alt="Bit Logo" />
+                                    </div>
+                                    <span>50 ₪</span>
+                                </a>
+                                <span className="text-xs mt-1 text-gray-400" dir="rtl">רמקול קטן לחימום&nbsp;&nbsp;🔈</span>
+                            </div>
+
                             {/* Bit 100 ₪ Button */}
-                            <a
-                                href="https://www.bitpay.co.il/app/share-info?i=172411035573_19kH1DD8" // Replace with actual Bit link for 100 ₪
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
-                            >
-                                <div className="w-8 h-8"> {/* Placeholder for Bit logo */}
-                                    <Image src="/media/logo/bit.png" width={32} height={32} alt="Bit Logo" />
-                                </div>
-                                <span>100 ₪</span>
-                            </a>
+                            <div className="flex flex-col items-center">
+                                <a
+                                    href="https://www.bitpay.co.il/app/share-info?i=172411035573_19kH1DD8" // Replace with actual Bit link for 100 ₪
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
+                                >
+                                    <div className="w-8 h-8"> {/* Placeholder for Bit logo */}
+                                        <Image src="/media/logo/bit.png" width={32} height={32} alt="Bit Logo" />
+                                    </div>
+                                    <span>100 ₪</span>
+                                </a>
+                                <span className="text-xs mt-1 text-gray-400" dir="rtl">סאב מפלצתי&nbsp;&nbsp;🔊</span>
+                            </div>
+
                             {/* Bit 200 ₪ Button */}
-                            <a
-                                href="https://www.bitpay.co.il/app/share-info?i=172411035573_19kH1DGK" // Replace with actual Bit link for 200 ₪
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
-                            >
-                                <div className="w-8 h-8"> {/* Placeholder for Bit logo */}
-                                    <Image src="/media/logo/bit.png" width={32} height={32} alt="Bit Logo" />
-                                </div>
-                                <span>200 ₪</span>
-                            </a>
+                            <div className="flex flex-col items-center">
+                                <a
+                                    href="https://www.bitpay.co.il/app/share-info?i=172411035573_19kH1DGK" // Replace with actual Bit link for 200 ₪
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
+                                >
+                                    <div className="w-8 h-8"> {/* Placeholder for Bit logo */}
+                                        <Image src="/media/logo/bit.png" width={32} height={32} alt="Bit Logo" />
+                                    </div>
+                                    <span>200 ₪</span>
+                                </a>
+                                <span className="text-xs mt-1 text-gray-400" dir="rtl">סאונד סיסטם קרחנה&nbsp;&nbsp;🔥</span>
+                            </div>
                         </div>
                     </div>
                 </div>
