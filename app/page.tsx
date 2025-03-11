@@ -16,15 +16,6 @@ export default function Home() {
         autoplaySpeed: 3000,
         pauseOnHover: false,
         arrows: false,
-        responsive: [
-            {
-                breakpoint: 768,
-                settings: {
-                    slidesToShow: 1,
-                    slidesToScroll: 1,
-                },
-            },
-        ],
     }
 
     return (
@@ -64,24 +55,25 @@ export default function Home() {
                                 className="w-full h-auto object-cover focus:outline-none"
                             />
                         </div>
+                        <div key="slide4">
+                            <Image
+                                src="/media/carousel/party-pic-4.jpg"
+                                alt="Party Pic 4"
+                                width={1200}
+                                height={800}
+                                className="w-full h-auto object-cover focus:outline-none"
+                            />
+                        </div>
                     </Slider>
                 </div>
             </section>
 
-            <section className="mb-6 w-full max-w-md md:max-w-2xl mx-auto px-4">
-                <h3 className="text-xl">Latest Set</h3>
-                <audio controls className="w-full mt-2">
-                    <source src="[Your Audio URL]" type="audio/mp3" />
-                    Your browser doesn’t support audio.
-                </audio>
-            </section>
-
             <div className="px-4">
                 <a
-                    href="/paybox"
-                    className="bg-neon-green text-black px-6 py-3 rounded-lg font-semibold hover:bg-green-400 transition"
+                    href="/support-us"
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition"
                 >
-                    Support the Party
+                    Support Us
                 </a>
             </div>
         </main>

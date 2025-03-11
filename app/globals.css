@@ -60,12 +60,6 @@
     padding: 0 !important;
 }
 
-@media (min-width: 768px) {
-    .slick-slide {
-        padding: 0 0.5rem !important;
-    }
-}
-
 /* Ensure dark-mode consistency (already set in layout.tsx, but for completeness) */
 body {
     background-color: #000000;

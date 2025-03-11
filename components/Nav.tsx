@@ -9,7 +9,7 @@ export default function Nav() {
 
     return (
         <nav className="w-full bg-black p-2 fixed top-0 left-0 z-10">
-            <div className="flex justify-between items-center max-w-md md:max-w-2xl mx-auto">
+            <div className="flex justify-between items-center md:max-w-2xl mx-auto">
                 <Link href="/" className="flex items-center space-x-2">
                     <Image
                         src="/media/logo/logo.svg"
@@ -49,8 +49,8 @@ export default function Nav() {
                     } overflow-hidden`}
                 >
                     <li className="p-4 border-b border-gray-700">
-                        <Link href="/paybox" onClick={() => setIsOpen(false)}>
-                            Donate
+                        <Link href="/support-us" onClick={() => setIsOpen(false)}>
+                            Support Us
                         </Link>
                     </li>
                     <li className="p-4 border-b border-gray-700">
@@ -65,7 +65,7 @@ export default function Nav() {
                     </li>
                 </ul>
                 <ul className="hidden md:flex space-x-4">
-                    <li><Link href="/paybox">Donate</Link></li>
+                    <li><Link href="/support-us">Support Us</Link></li>
                     <li><Link href="/sets">Sets</Link></li>
                     <li><Link href="/music">Music</Link></li>
                 </ul>
