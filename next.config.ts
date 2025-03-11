@@ -1,13 +1,28 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-    async headers() {
-        return [
-            { source: "/media/(.*)", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
-            { source: "/_next/image(.*)", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
-            { source: "/_next/image\?url=%2Fmedia%2F(.*)", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] }, // Add this
-        ];
-    },
+  async headers() {
+    return [
+      {
+        source: "/media/(.*)", // Static files in /public/media
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+      {
+        source: "/_next/image/:path*", // Match all /_next/image requests
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
