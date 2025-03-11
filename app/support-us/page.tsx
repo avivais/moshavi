@@ -10,10 +10,23 @@ export default function SupportUs() {
     // Array of image file names
     const images = ['1.jpg', '2.jpg', '3.jpg', '4.jpg', '5.jpg']
 
-    // Set a random image on mount
+    // Set a random image on mount and ensure buttons are visible
     useEffect(() => {
         const randomIndex = Math.floor(Math.random() * images.length)
         setRandomImage(randomIndex)
+        // Ensure the last donation button is visible by scrolling if needed
+        setTimeout(() => {
+            const lastButton = document.querySelector('.flex.flex-col.md\\:flex-row > div:last-child')
+            if (lastButton) {
+                const rect = lastButton.getBoundingClientRect()
+                if (rect.bottom > window.innerHeight) {
+                    window.scrollBy({
+                        top: rect.bottom - window.innerHeight + 20, // Add some padding
+                        behavior: 'smooth'
+                    })
+                }
+            }
+        }, 500) // Small delay to ensure elements are rendered
     }, [])
 
     return (
