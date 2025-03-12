@@ -26,7 +26,7 @@ export const playlistEntries: PlaylistEntry[] = [
     { month: 3, year: 2024, embedId: 'PLeRFN0o7R_lOMUr1tDy5k228mEbHbjSBK' },
     { month: 4, year: 2024, embedId: 'PLeRFN0o7R_lMXeX6OaWh9i3TwTXsaV8Qy' },
     { month: 5, year: 2024, embedId: 'PLeRFN0o7R_lNVQtqdXPQAUrzlgmt3g_e7' },
-    { month: 6, year: 2024, embedId: 'PLeRFN0o7R_lOTpSY0mPr4WpYGrO7cjzS' },
+    { month: 6, year: 2024, embedId: 'PLeRFN0o7R_lOTpSY0mPr4WpYGrO7cjzS-' },
     { month: 7, year: 2024, embedId: 'PLeRFN0o7R_lMV-8vmHGLURXsS0YDUE-qB' },
     { month: 8, year: 2024, embedId: 'PLeRFN0o7R_lPxmcka1HPl6tDW2uJyeWWB' },
     { month: 9, year: 2024, embedId: 'PLeRFN0o7R_lPQ2VULu8xJR7Kvau6LIUTq' },
@@ -35,7 +35,6 @@ export const playlistEntries: PlaylistEntry[] = [
     { month: 12, year: 2024, embedId: 'PLeRFN0o7R_lOoy-nkYlpmS4yaxxJ-c_CH' },
     { month: 1, year: 2025, embedId: 'PLeRFN0o7R_lNO5VUdHDDSiU6gAr-bhmum' },
     { month: 2, year: 2025, embedId: 'PLeRFN0o7R_lOwAZLh3Kvg59DyhfDRS251' },
-
 ]
 
 // Full playlist type used by the component
