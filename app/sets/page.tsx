@@ -1,8 +1,18 @@
+import { Metadata } from 'next'
+import SetsClient from './SetsClient'
+
+export const metadata: Metadata = {
+  title: 'MoshAvi Productions | Sets',
+  description: 'Listen to our past sets',
+  openGraph: {
+    title: 'MoshAvi Productions | Sets',
+    description: 'Listen to our past sets',
+    url: 'https://www.moshavi.com/sets',
+    type: 'website',
+    siteName: 'MoshAvi',
+  },
+}
+
 export default function Sets() {
-    return (
-      <main className="min-h-screen p-4">
-        <h1 className="text-3xl mb-4">Past Sets</h1>
-        <p>Coming soon: All the beats from past parties!</p>
-      </main>
-    )
-  }
+  return <SetsClient />
+}
