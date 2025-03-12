@@ -8,7 +8,7 @@ export default function Nav() {
     const [isOpen, setIsOpen] = useState(false)
 
     return (
-        <nav className="w-full bg-black p-2 fixed top-0 left-0 z-10 font-poiret-one font-normal">
+        <nav className="w-full bg-black p-2 fixed top-0 left-0 z-[100] font-poiret-one font-normal">
             <div className="flex justify-between items-center md:max-w-2xl mx-auto">
                 <Link href="/" className="flex items-center space-x-2">
                     <Image
@@ -43,27 +43,35 @@ export default function Nav() {
                         </svg>
                     </button>
                 </div>
-                <ul
-                    className={`md:hidden fixed top-12 left-0 w-full bg-black transition-all duration-300 ease-in-out ${
+                <div
+                    className={`md:hidden fixed top-12 left-0 w-full bg-black transition-all duration-300 ease-in-out z-50 ${
                         isOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
                     } overflow-hidden`}
                 >
-                    <li className="p-4 border-b border-gray-700">
-                        <Link href="/support-us" onClick={() => setIsOpen(false)}>
+                    <div className="w-full">
+                        <Link
+                            href="/support-us"
+                            onClick={() => setIsOpen(false)}
+                            className="block p-4 w-full border-b border-gray-700 text-white hover:bg-gray-800 transition-colors"
+                        >
                             Support Us
                         </Link>
-                    </li>
-                    <li className="p-4 border-b border-gray-700">
-                        <Link href="/sets" onClick={() => setIsOpen(false)}>
+                        <Link
+                            href="/sets"
+                            onClick={() => setIsOpen(false)}
+                            className="block p-4 w-full border-b border-gray-700 text-white hover:bg-gray-800 transition-colors"
+                        >
                             Sets
                         </Link>
-                    </li>
-                    <li className="p-4">
-                        <Link href="/music" onClick={() => setIsOpen(false)}>
+                        <Link
+                            href="/music"
+                            onClick={() => setIsOpen(false)}
+                            className="block p-4 w-full text-white hover:bg-gray-800 transition-colors"
+                        >
                             Music
                         </Link>
-                    </li>
-                </ul>
+                    </div>
+                </div>
                 <ul className="hidden md:flex space-x-4">
                     <li><Link href="/support-us">Support Us</Link></li>
                     <li><Link href="/sets">Sets</Link></li>

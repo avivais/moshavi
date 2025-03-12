@@ -86,7 +86,7 @@ export default function MusicClient() {
             {/* MOBILE LAYOUT */}
             <div className="md:hidden flex flex-col">
                 <div className="h-[3rem]"></div>
-                <div className="fixed top-12 left-0 right-0 z-20 bg-black px-4 pt-2 pb-1">
+                <div className="fixed top-12 left-0 right-0 z-[90] bg-black px-4 pt-2 pb-1">
                     <h1 className="text-2xl font-poiret-one mb-2 text-center">Monthly Playlists</h1>
                     {currentPlaylist && (
                         <div className="bg-gray-900 rounded-lg overflow-hidden mb-0">
