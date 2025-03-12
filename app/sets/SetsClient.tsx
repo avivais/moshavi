@@ -4,18 +4,28 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { videoSets, VideoSet } from './videoSets'
 
 export default function SetsClient() {
-    // Use imported video sets
     const memoizedVideoSets = useMemo(() => videoSets, [])
 
     const [currentVideo, setCurrentVideo] = useState<VideoSet | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [progress, setProgress] = useState(0)
-    const [volume, setVolume] = useState(0.7)
+    const [isMuted, setIsMuted] = useState(false)
+    const [volume, setVolume] = useState(0.7) // Current volume
+    const [lastVolume, setLastVolume] = useState(0.7) // Last non-zero volume
     const [duration, setDuration] = useState(0)
     const [currentTime, setCurrentTime] = useState(0)
+    const [isIOS, setIsIOS] = useState(false) // iOS detection
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const progressRef = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        // Detect if the device is iOS
+        const checkIOS = () =>
+            /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
+        setIsIOS(checkIOS())
+    }, [])
 
     useEffect(() => {
         // Set the newest video (highest ID) as current by default
@@ -38,6 +48,8 @@ export default function SetsClient() {
 
         const handleLoadedMetadata = () => {
             setDuration(video.duration)
+            video.volume = volume // Set initial volume for non-iOS
+            video.muted = isMuted || volume === 0 // Sync muted state with volume
         }
 
         video.addEventListener('timeupdate', updateProgress)
@@ -47,7 +59,7 @@ export default function SetsClient() {
             video.removeEventListener('timeupdate', updateProgress)
             video.removeEventListener('loadedmetadata', handleLoadedMetadata)
         }
-    }, [currentVideo])
+    }, [currentVideo, volume, isMuted])
 
     const handleVideoClick = () => {
         const video = videoRef.current
@@ -76,6 +88,29 @@ export default function SetsClient() {
         setVolume(value)
         if (videoRef.current) {
             videoRef.current.volume = value
+            setIsMuted(value === 0) // Mute if volume is 0, unmute if above 0
+            if (value > 0) setLastVolume(value) // Update lastVolume if volume is above 0
+        }
+    }
+
+    const toggleMute = () => {
+        const video = videoRef.current
+        if (!video) return
+
+        if (isMuted) {
+            // Unmute: Restore last non-zero volume
+            const newVolume = lastVolume > 0 ? lastVolume : 0.7
+            setVolume(newVolume)
+            video.volume = newVolume
+            video.muted = false
+            setIsMuted(false)
+        } else {
+            // Mute: Save current volume and set to 0
+            if (volume > 0) setLastVolume(volume)
+            setVolume(0)
+            video.volume = 0
+            video.muted = true
+            setIsMuted(true)
         }
     }
 
@@ -97,6 +132,11 @@ export default function SetsClient() {
         setIsPlaying(false)
         setProgress(0)
         setCurrentTime(0)
+        setIsMuted(false)
+        if (!isIOS) {
+            setVolume(0.7) // Reset volume for non-iOS devices
+            setLastVolume(0.7) // Reset lastVolume
+        }
     }
 
     return (
@@ -115,6 +155,7 @@ export default function SetsClient() {
                                     poster={currentVideo.poster}
                                     className="w-full h-full object-contain"
                                     playsInline
+                                    muted={isMuted || (volume === 0 && !isIOS)} // Sync with volume for non-iOS
                                 >
                                     Your browser does not support the video tag.
                                 </video>
@@ -156,21 +197,33 @@ export default function SetsClient() {
                                             )}
                                         </button>
 
+                                        {/* Volume Control */}
                                         <div className="flex items-center gap-2">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
-                                                <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z" />
-                                                <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z" />
-                                                <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7.22 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.605-1.89a.5.5 0 0 1 .287-.06z" />
-                                            </svg>
-                                            <input
-                                                type="range"
-                                                min="0"
-                                                max="1"
-                                                step="0.01"
-                                                value={volume}
-                                                onChange={handleVolumeChange}
-                                                className="w-16 md:w-24 accent-purple-500"
-                                            />
+                                            <button onClick={toggleMute} className="text-white hover:text-gray-300">
+                                                {isMuted || (volume === 0 && !isIOS) ? (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                                                        <path d="M6.717 3.55A.5.5 0 0 1 7.22 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.605-1.89a.5.5 0 0 1 .287-.06zm6.963 1.582a.5.5 0 0 1 0 .707L12.354 7.165l1.326 1.326a.5.5 0 0 1-.707.707L11.647 7.872l-1.326 1.326a.5.5 0 0 1-.707-.707L10.94 7.165l-1.326-1.326a.5.5 0 0 1 .707-.707L11.647 6.458l1.326-1.326a.5.5 0 0 1 .707 0z" />
+                                                    </svg>
+                                                ) : (
+                                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
+                                                        <path d="M11.536 14.01A8.473 8.473 0 0 0 14.026 8a8.473 8.473 0 0 0-2.49-6.01l-.708.707A7.476 7.476 0 0 1 13.025 8c0 2.071-.84 3.946-2.197 5.303l.708.707z" />
+                                                        <path d="M10.121 12.596A6.48 6.48 0 0 0 12.025 8a6.48 6.48 0 0 0-1.904-4.596l-.707.707A5.483 5.483 0 0 1 11.025 8a5.483 5.483 0 0 1-1.61 3.89l.706.706z" />
+                                                        <path d="M8.707 11.182A4.486 4.486 0 0 0 10.025 8a4.486 4.486 0 0 0-1.318-3.182L8 5.525A3.489 3.489 0 0 1 9.025 8 3.49 3.49 0 0 1 8 10.475l.707.707zM6.717 3.55A.5.5 0 0 1 7.22 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.605-1.89a.5.5 0 0 1 .287-.06z" />
+                                                    </svg>
+                                                )}
+                                            </button>
+                                            {/* Conditionally render volume slider for non-iOS devices */}
+                                            {!isIOS && (
+                                                <input
+                                                    type="range"
+                                                    min="0"
+                                                    max="1"
+                                                    step="0.01"
+                                                    value={volume}
+                                                    onChange={handleVolumeChange}
+                                                    className="w-16 md:w-24 accent-purple-500"
+                                                />
+                                            )}
                                         </div>
                                     </div>
 
