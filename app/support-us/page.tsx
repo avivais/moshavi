@@ -42,7 +42,7 @@ export default function SupportUs() {
                     />
                 </div>
 
-                <p className="font-karantina mb-6 text-[2.5rem] md:text-8xl">
+                <p className="font-karantina mb-6 text-[2.5rem] text-7xl md:text-8xl">
                     <span className="font-bold">תרקדו</span> כאילו <span className="font-bold">אין</span> מחר
                     <br />
                     <span className="font-bold">תתרמו</span> כאילו <span className="font-bold">יש</span> עלויות
@@ -78,7 +78,7 @@ export default function SupportUs() {
                                     <div className="w-8 h-8"> {/* Placeholder for Bit logo */}
                                         <Image src="/media/logo/bit.png" width={32} height={32} alt="Bit Logo" />
                                     </div>
-                                    <span>50 ₪</span>
+                                    <span dir="rtl">50 ₪</span>
                                 </a>
                                 <span className="text-xs mt-1 text-gray-400" dir="rtl">רמקול קטן לחימום&nbsp;&nbsp;🔈</span>
                             </div>
@@ -94,7 +94,7 @@ export default function SupportUs() {
                                     <div className="w-8 h-8"> {/* Placeholder for Bit logo */}
                                         <Image src="/media/logo/bit.png" width={32} height={32} alt="Bit Logo" />
                                     </div>
-                                    <span>100 ₪</span>
+                                    <span dir="rtl">100 ₪</span>
                                 </a>
                                 <span className="text-xs mt-1 text-gray-400" dir="rtl">סאב מפלצתי&nbsp;&nbsp;🔊</span>
                             </div>
@@ -110,7 +110,7 @@ export default function SupportUs() {
                                     <div className="w-8 h-8"> {/* Placeholder for Bit logo */}
                                         <Image src="/media/logo/bit.png" width={32} height={32} alt="Bit Logo" />
                                     </div>
-                                    <span>200 ₪</span>
+                                    <span dir="rtl">200 ₪</span>
                                 </a>
                                 <span className="text-xs mt-1 text-gray-400" dir="rtl">סאונד סיסטם קרחנה&nbsp;&nbsp;🔥</span>
                             </div>

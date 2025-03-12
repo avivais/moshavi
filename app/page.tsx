@@ -20,9 +20,11 @@ export default function Home() {
 
     return (
         <main className="min-h-screen flex flex-col items-center p-0">
-            <section className="mb-4 text-center px-4 font-spicy-rice">
-                <h2 className="text-2xl">Purim @ MoshAvi</h2>
-                <p className="text-xl">13.3.2025</p>
+            <section className="mb-4 text-center px-4 font-henny-penny">
+                <div className="text-3xl font-poiret-one mb-2">MoshAvi #004</div>
+                <div className="text-2xl bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600 text-transparent bg-clip-text">Purim Edition</div>
+                <div className="text-2xl bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600 text-transparent bg-clip-text mb-1">13.3.2025</div>
+                <div className="text-lg font-bonheur-royale">Music Is The Answer</div>
             </section>
 
             <section className="w-screen mb-6">

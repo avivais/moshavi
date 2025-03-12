@@ -2,23 +2,22 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Import Google Fonts for Poiret One, Spicy Rice, and Karantina */
-@import url('https://fonts.googleapis.com/css2?family=Poiret+One&family=Spicy+Rice&family=Karantina:wght@300;400;700&display=swap');
-
-/* Define custom font classes */
 .font-poiret-one {
-    font-family: 'Poiret One', sans-serif;
-    font-weight: bold;
-}
-
-.font-spicy-rice {
-    font-family: 'Spicy Rice', cursive;
-    font-weight: normal; /* Spicy Rice is naturally bold, so normal works */
+    font-family: var(--font-poiret-one);
 }
 
 .font-karantina {
-    font-family: 'Karantina', cursive;
-    font-weight: 400; /* Default weight, can adjust to 300 or 700 if needed */
+    font-family: var(--font-karantina);
+    font-weight: 300;
+}
+
+.font-bonheur-royale {
+    font-family: var(--font-bonheur-royale);
+}
+
+.font-henny-penny {
+    font-family: var(--font-henny-penny);
+    font-weight: 400;
 }
 
 /* Customize carousel dots */

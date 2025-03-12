@@ -8,7 +8,7 @@ export default function Nav() {
     const [isOpen, setIsOpen] = useState(false)
 
     return (
-        <nav className="w-full bg-black p-2 fixed top-0 left-0 z-10">
+        <nav className="w-full bg-black p-2 fixed top-0 left-0 z-10 font-poiret-one font-normal">
             <div className="flex justify-between items-center md:max-w-2xl mx-auto">
                 <Link href="/" className="flex items-center space-x-2">
                     <Image
@@ -18,7 +18,7 @@ export default function Nav() {
                         height={32}
                         className="h-8"
                     />
-                    <span className="text-white font-poiret-one font-bold text-xl leading-none">
+                    <span className="text-white font-poiret-one text-xl leading-none">
                         MoshAvi
                     </span>
                 </Link>
