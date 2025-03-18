@@ -35,6 +35,21 @@ if (require.main === module) {
         } else {
             console.log('video_sets table already exists');
         }
+
+        const existsPlaylists = db.prepare<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name='playlists'").get();
+        if (!existsPlaylists) {
+            db.exec(`
+                CREATE TABLE playlists (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    month TEXT NOT NULL,
+                    year INTEGER NOT NULL,
+                    embedId TEXT NOT NULL
+                )
+            `);
+            console.log('Created playlists table');
+        } else {
+            console.log('playlists table already exists');
+        }
     } catch (err) {
         console.error('Error setting up DB:', err);
     } finally {

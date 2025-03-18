@@ -1,16 +1,51 @@
 'use client'
 
-import { useState, useMemo } from 'react'
-import { playlists, type Playlist } from './playlists'
+import { useState, useEffect, useMemo } from 'react'
+
+interface Playlist {
+    id: number
+    month: string
+    year: number
+    embedId: string
+}
 
 export default function MusicClient() {
-    const playlistsData = useMemo(() => playlists, [])
+    const [playlistsData, setPlaylistsData] = useState<Playlist[]>([])
+    const [error, setError] = useState<string | null>(null)
     const [currentPlaylist, setCurrentPlaylist] = useState<Playlist | null>(null)
+
+    useEffect(() => {
+        async function fetchPlaylists() {
+            try {
+                const res = await fetch('/api/playlists')
+                if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
+                const data = await res.json()
+                setPlaylistsData(data)
+                // Set the newest playlist only if not already set
+                if (data.length > 0 && !currentPlaylist) {
+                    const newestPlaylist = [...data].sort((a, b) => {
+                        if (a.year !== b.year) return b.year - a.year
+                        const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+                        return months.indexOf(b.month) - months.indexOf(a.month)
+                    })[0]
+                    setCurrentPlaylist(newestPlaylist)
+                }
+            } catch (err: unknown) {
+                const errorMessage = err instanceof Error ? err.message : 'Failed to load playlists'
+                console.error('Fetch error:', errorMessage)
+                setError(errorMessage)
+            }
+        }
+        fetchPlaylists()
+    }, [currentPlaylist]) // Added currentPlaylist to dependencies
+
+    // Memoize playlistsData for performance
+    const memoizedPlaylists = useMemo(() => playlistsData, [playlistsData])
 
     // Group playlists by year
     const playlistsByYear = useMemo(() => {
         const grouped: Record<number, Playlist[]> = {}
-        playlistsData.forEach(playlist => {
+        memoizedPlaylists.forEach(playlist => {
             if (!grouped[playlist.year]) {
                 grouped[playlist.year] = []
             }
@@ -23,28 +58,11 @@ export default function MusicClient() {
             .map(([year, playlists]) => ({
                 year: Number(year),
                 playlists: playlists.sort((a, b) => {
-                    // Sort months in reverse chronological order
-                    const months = ['January', 'February', 'March', 'April', 'May', 'June',
-                        'July', 'August', 'September', 'October', 'November', 'December']
+                    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
                     return months.indexOf(b.month) - months.indexOf(a.month)
                 })
             }))
-    }, [playlistsData])
-
-    // Set the newest playlist as current by default
-    useState(() => {
-        if (playlistsData.length > 0 && !currentPlaylist) {
-            const newestPlaylist = [...playlistsData].sort((a, b) => {
-                if (a.year !== b.year) return b.year - a.year
-
-                const months = ['January', 'February', 'March', 'April', 'May', 'June',
-                    'July', 'August', 'September', 'October', 'November', 'December']
-                return months.indexOf(b.month) - months.indexOf(a.month)
-            })[0]
-
-            setCurrentPlaylist(newestPlaylist)
-        }
-    })
+    }, [memoizedPlaylists])
 
     const selectPlaylist = (playlist: Playlist) => {
         setCurrentPlaylist(playlist)
@@ -88,6 +106,7 @@ export default function MusicClient() {
                 <div className="h-[3rem]"></div>
                 <div className="fixed top-12 left-0 right-0 z-[90] bg-black px-4 pt-2 pb-1">
                     <h1 className="text-2xl font-poiret-one mb-2 text-center">Monthly Playlists</h1>
+                    {error && <p className="text-red-500">{error}</p>}
                     {currentPlaylist && (
                         <div className="bg-gray-900 rounded-lg overflow-hidden mb-0">
                             <div className="relative aspect-video">
@@ -118,6 +137,7 @@ export default function MusicClient() {
                 <div className="flex gap-8">
                     <div className="w-2/3">
                         <div className="sticky top-16">
+                            {error && <p className="text-red-500">{error}</p>}
                             {currentPlaylist ? (
                                 <div className="bg-gray-900 rounded-lg overflow-hidden">
                                     <div className="relative aspect-video">
