@@ -1,11 +1,18 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo } from 'react'
-import { videoSets, VideoSet } from './videoSets'
+
+interface VideoSet {
+    id: number
+    title: string
+    date: string
+    src: string
+    poster: string
+}
 
 export default function SetsClient() {
-    const memoizedVideoSets = useMemo(() => videoSets, [])
-
+    const [videoSets, setVideoSets] = useState<VideoSet[]>([])
+    const [error, setError] = useState<string | null>(null)
     const [currentVideo, setCurrentVideo] = useState<VideoSet | null>(null)
     const [isPlaying, setIsPlaying] = useState(false)
     const [progress, setProgress] = useState(0)
@@ -19,6 +26,31 @@ export default function SetsClient() {
     const videoRef = useRef<HTMLVideoElement>(null)
     const progressRef = useRef<HTMLDivElement>(null)
 
+    // Memoize the reversed video list unconditionally
+    const memoizedVideoSets = useMemo(() => [...videoSets].reverse(), [videoSets])
+
+    useEffect(() => {
+        // Fetch video sets from DB
+        async function fetchVideoSets() {
+            try {
+                const res = await fetch('/api/videoSets')
+                if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
+                const data = await res.json()
+                setVideoSets(data)
+                // Set the newest video (highest ID) as current by default
+                if (data.length > 0) {
+                    const newestVideo = [...data].sort((a, b) => b.id - a.id)[0]
+                    setCurrentVideo(newestVideo)
+                }
+            } catch (err: unknown) {
+                const errorMessage = err instanceof Error ? err.message : 'Failed to load video sets'
+                console.error('Fetch error:', errorMessage)
+                setError(errorMessage)
+            }
+        }
+        fetchVideoSets()
+    }, [])
+
     useEffect(() => {
         // Detect if the device is iOS
         const checkIOS = () =>
@@ -26,14 +58,6 @@ export default function SetsClient() {
             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)
         setIsIOS(checkIOS())
     }, [])
-
-    useEffect(() => {
-        // Set the newest video (highest ID) as current by default
-        if (memoizedVideoSets.length > 0 && !currentVideo) {
-            const newestVideo = [...memoizedVideoSets].sort((a, b) => b.id - a.id)[0]
-            setCurrentVideo(newestVideo)
-        }
-    }, [memoizedVideoSets, currentVideo])
 
     useEffect(() => {
         const video = videoRef.current
@@ -48,8 +72,8 @@ export default function SetsClient() {
 
         const handleLoadedMetadata = () => {
             setDuration(video.duration)
-            video.volume = volume // Set initial volume for non-iOS
-            video.muted = isMuted || volume === 0 // Sync muted state with volume
+            video.volume = volume
+            video.muted = isMuted || volume === 0
         }
 
         video.addEventListener('timeupdate', updateProgress)
@@ -88,8 +112,8 @@ export default function SetsClient() {
         setVolume(value)
         if (videoRef.current) {
             videoRef.current.volume = value
-            setIsMuted(value === 0) // Mute if volume is 0, unmute if above 0
-            if (value > 0) setLastVolume(value) // Update lastVolume if volume is above 0
+            setIsMuted(value === 0)
+            if (value > 0) setLastVolume(value)
         }
     }
 
@@ -98,14 +122,12 @@ export default function SetsClient() {
         if (!video) return
 
         if (isMuted) {
-            // Unmute: Restore last non-zero volume
             const newVolume = lastVolume > 0 ? lastVolume : 0.7
             setVolume(newVolume)
             video.volume = newVolume
             video.muted = false
             setIsMuted(false)
         } else {
-            // Mute: Save current volume and set to 0
             if (volume > 0) setLastVolume(volume)
             setVolume(0)
             video.volume = 0
@@ -134,8 +156,8 @@ export default function SetsClient() {
         setCurrentTime(0)
         setIsMuted(false)
         if (!isIOS) {
-            setVolume(0.7) // Reset volume for non-iOS devices
-            setLastVolume(0.7) // Reset lastVolume
+            setVolume(0.7)
+            setLastVolume(0.7)
         }
     }
 
@@ -155,7 +177,7 @@ export default function SetsClient() {
                                     poster={currentVideo.poster}
                                     className="w-full h-full object-contain"
                                     playsInline
-                                    muted={isMuted || (volume === 0 && !isIOS)} // Sync with volume for non-iOS
+                                    muted={isMuted || (volume === 0 && !isIOS)}
                                 >
                                     Your browser does not support the video tag.
                                 </video>
@@ -212,7 +234,6 @@ export default function SetsClient() {
                                                     </svg>
                                                 )}
                                             </button>
-                                            {/* Conditionally render volume slider for non-iOS devices */}
                                             {!isIOS && (
                                                 <input
                                                     type="range"
@@ -246,19 +267,25 @@ export default function SetsClient() {
                     <div className="bg-gray-900 rounded-lg p-4">
                         <h2 className="text-xl mb-4 font-poiret-one">Available Sets</h2>
                         <div className="space-y-3">
-                            {[...memoizedVideoSets].reverse().map((video) => (
-                                <div
-                                    key={video.id}
-                                    onClick={() => selectVideo(video)}
-                                    className={`p-3 rounded-lg cursor-pointer transition ${currentVideo?.id === video.id
-                                            ? 'bg-gradient-to-r from-yellow-300/20 via-purple-500/20 to-cyan-600/20 border border-purple-500/50'
-                                            : 'hover:bg-gray-800'
-                                        }`}
-                                >
-                                    <h3 className="font-poiret-one">{video.title}</h3>
-                                    <p className="text-sm text-gray-400">{video.date}</p>
-                                </div>
-                            ))}
+                            {error ? (
+                                <p>{error}</p>
+                            ) : videoSets.length > 0 ? (
+                                memoizedVideoSets.map((video) => (
+                                    <div
+                                        key={video.id}
+                                        onClick={() => selectVideo(video)}
+                                        className={`p-3 rounded-lg cursor-pointer transition ${currentVideo?.id === video.id
+                                                ? 'bg-gradient-to-r from-yellow-300/20 via-purple-500/20 to-cyan-600/20 border border-purple-500/50'
+                                                : 'hover:bg-gray-800'
+                                            }`}
+                                    >
+                                        <h3 className="font-poiret-one">{video.title}</h3>
+                                        <p className="text-sm text-gray-400">{video.date}</p>
+                                    </div>
+                                ))
+                            ) : (
+                                <p>No sets available</p>
+                            )}
                         </div>
                     </div>
                 </div>
