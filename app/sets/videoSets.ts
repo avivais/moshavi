@@ -27,5 +27,12 @@ export const videoSets: VideoSet[] = [
         date: '18.10.2024',
         src: '/media/sets/MoshAvi-003.mp4',
         poster: '/media/poster/MoshAvi-003.jpg'
-    }
+    },
+    {
+        id: 4,
+        title: 'MoshAvi #004 - Purim Edition',
+        date: '13.03.2025',
+        src: '/media/sets/MoshAvi-003.mp4',
+        poster: '/media/poster/MoshAvi-003.jpg'
+    },
 ]
