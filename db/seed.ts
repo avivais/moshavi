@@ -22,7 +22,7 @@ import db from '../db';
             { title: 'MoshAvi #001', date: '11.08.2023', src: '/media/sets/MoshAvi-001.mp4', poster: '/media/poster/MoshAvi-001.jpg' },
             { title: 'MoshAvi #002', date: '26.04.2024', src: '/media/sets/MoshAvi-002.mp4', poster: '/media/poster/MoshAvi-002.jpg' },
             { title: 'MoshAvi #003', date: '18.10.2024', src: '/media/sets/MoshAvi-003.mp4', poster: '/media/poster/MoshAvi-003.jpg' },
-            { title: 'MoshAvi #004 - Purim Edition', date: '13.03.2025', src: '/media/sets/MoshAvi-003.mp4', poster: '/media/poster/MoshAvi-003.jpg' },
+            { title: 'MoshAvi #004 - Purim Edition', date: '13.03.2025', src: '/media/sets/MoshAvi-004.mp4', poster: '/media/poster/MoshAvi-004.jpg' },
         ];
         for (const videoSet of videoSets) {
             videoSetsStmt.run(videoSet.title, videoSet.date, videoSet.src, videoSet.poster);
