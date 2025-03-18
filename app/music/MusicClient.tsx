@@ -103,7 +103,7 @@ export default function MusicClient() {
             {/* MOBILE LAYOUT */}
             <div className="md:hidden flex flex-col">
                 <div className="h-[3rem]"></div>
-                <div className="fixed top-12 left-0 right-0 z-[90] bg-black px-4 pt-2 pb-1">
+                <div className="fixed top-12 left-0 right-0 z-[90] bg-black px-2 md:px-4 pt-2 pb-1">
                     <h1 className="text-2xl font-poiret-one mb-2 text-center">Monthly Playlists</h1>
                     {error && <p className="text-red-500">{error}</p>}
                     {currentPlaylist && (
@@ -123,7 +123,7 @@ export default function MusicClient() {
                         </div>
                     )}
                 </div>
-                <div className="mt-[calc(56vw+1.5rem)] px-4">
+                <div className="mt-[calc(56vw+1.5rem)] px-2 md:px-4">
                     <div className="bg-gray-900 rounded-lg p-4">
                         <h2 className="text-xl mb-4 font-poiret-one">Playlist Archives</h2>
                         {renderPlaylistItems()}
@@ -131,7 +131,7 @@ export default function MusicClient() {
                 </div>
             </div>
             {/* DESKTOP LAYOUT */}
-            <div className="hidden md:block px-8 pb-8">
+            <div className="hidden md:block px-4 pb-8">
                 <h1 className="text-3xl mb-4 font-poiret-one">Monthly Playlists</h1>
                 <div className="flex gap-8">
                     <div className="w-2/3">
