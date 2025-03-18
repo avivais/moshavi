@@ -1,6 +1,4 @@
-import Database from 'better-sqlite3';
-
-const db = new Database('./moshavi.db');
+import db from '../db';
 
 (async () => {
     try {
@@ -60,6 +58,6 @@ const db = new Database('./moshavi.db');
     } catch (err) {
         console.error('Error seeding DB:', err);
     } finally {
-        db.close();
+        // No db.close() here to keep it open
     }
 })();

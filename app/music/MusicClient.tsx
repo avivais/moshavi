@@ -21,7 +21,6 @@ export default function MusicClient() {
                 if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
                 const data = await res.json()
                 setPlaylistsData(data)
-                // Set the newest playlist only if not already set
                 if (data.length > 0 && !currentPlaylist) {
                     const newestPlaylist = [...data].sort((a, b) => {
                         if (a.year !== b.year) return b.year - a.year
@@ -37,7 +36,7 @@ export default function MusicClient() {
             }
         }
         fetchPlaylists()
-    }, [currentPlaylist]) // Added currentPlaylist to dependencies
+    }, [currentPlaylist])
 
     // Memoize playlistsData for performance
     const memoizedPlaylists = useMemo(() => playlistsData, [playlistsData])

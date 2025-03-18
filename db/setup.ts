@@ -1,6 +1,4 @@
-import Database from 'better-sqlite3';
-
-const db = new Database('./moshavi.db');
+import db from '../db';
 
 if (require.main === module) {
     try {
@@ -53,8 +51,6 @@ if (require.main === module) {
     } catch (err) {
         console.error('Error setting up DB:', err);
     } finally {
-        db.close();
+        // No db.close() here to keep it open
     }
 }
-
-export { db };

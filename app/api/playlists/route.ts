@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-
-const db = new Database('./moshavi.db');
+import db from '../../../db';
 
 interface Playlist {
     id: number;
