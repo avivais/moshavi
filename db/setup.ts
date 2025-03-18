@@ -50,7 +50,5 @@ if (require.main === module) {
         }
     } catch (err) {
         console.error('Error setting up DB:', err);
-    } finally {
-        // No db.close() here to keep it open
     }
 }

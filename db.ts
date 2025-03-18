@@ -1,5 +1,18 @@
 import Database from 'better-sqlite3';
 
-const db = new Database('./moshavi.db');
+class DatabaseManager {
+    private static instance: Database;
 
-export default db;
+    private constructor() {
+        // Private constructor to prevent direct instantiation
+    }
+
+    public static getInstance(): Database {
+        if (!DatabaseManager.instance) {
+            DatabaseManager.instance = new Database('./moshavi.db');
+        }
+        return DatabaseManager.instance;
+    }
+}
+
+export default DatabaseManager.getInstance();
