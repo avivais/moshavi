@@ -43,9 +43,9 @@ export default function SupportUsClient() {
                 </div>
 
                 <p className="font-karantina mb-6 text-7xl md:text-8xl">
-                    <span className="font-bold">תרקדו</span> כאילו <span className="font-bold">אין</span> מחר
+                    אבא <span className="font-bold">עשיר</span> אבא <span className="font-bold">עני</span>
                     <br />
-                    <span className="font-bold">תתרמו</span> כאילו <span className="font-bold">יש</span> עלויות
+                    אבא <span className="font-bold">תרחם</span> אבא <span className="font-bold">תשלם</span>
                 </p>
 
                 <div className="flex justify-center">
@@ -69,7 +69,8 @@ export default function SupportUsClient() {
                                 </span>
                             </div>
 
-                            {/* Bit 50 ₪ Button */}
+                            {/* Bit}
+                            {/* Bit 50 ₪ Button}
                             <div className="flex flex-col items-center">
                                 <a
                                     href="https://www.bitpay.co.il/app/share-info?i=172411035573_19kH1D8L"
@@ -87,7 +88,7 @@ export default function SupportUsClient() {
                                 </span>
                             </div>
 
-                            {/* Bit 100 ₪ Button */}
+                            {/* Bit 100 ₪ Button}
                             <div className="flex flex-col items-center">
                                 <a
                                     href="https://www.bitpay.co.il/app/share-info?i=172411035573_19kH1DD8"
@@ -105,7 +106,7 @@ export default function SupportUsClient() {
                                 </span>
                             </div>
 
-                            {/* Bit 200 ₪ Button */}
+                            {/* Bit 200 ₪ Button}
                             <div className="flex flex-col items-center">
                                 <a
                                     href="https://www.bitpay.co.il/app/share-info?i=172411035573_19kH1DGK"
@@ -122,6 +123,7 @@ export default function SupportUsClient() {
                                     סאונד סיסטם קרחנה 🔥
                                 </span>
                             </div>
+                            {*/}
                         </div>
                     </div>
                 </div>
