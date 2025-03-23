@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
+import WhatsAppButton from './WhatsAppButton'
 
 export default function Nav() {
     const [isOpen, setIsOpen] = useState(false)
@@ -10,18 +11,21 @@ export default function Nav() {
     return (
         <nav className="w-full bg-black p-2 fixed top-0 left-0 z-[100] font-poiret-one font-normal">
             <div className="flex justify-between items-center md:max-w-2xl mx-auto">
-                <Link href="/" className="flex items-center space-x-2">
-                    <Image
-                        src="/media/logo/logo.svg"
-                        alt="MoshAvi Productions Logo"
-                        width={32}
-                        height={32}
-                        className="h-8"
-                    />
-                    <span className="text-white font-poiret-one text-xl leading-none">
-                        MoshAvi
-                    </span>
-                </Link>
+                <div className="flex items-center space-x-2">
+                    <Link href="/" className="flex items-center space-x-2">
+                        <Image
+                            src="/media/logo/logo.svg"
+                            alt="MoshAvi Productions Logo"
+                            width={32}
+                            height={32}
+                            className="h-8"
+                        />
+                        <span className="text-white font-poiret-one text-xl leading-none">
+                            MoshAvi
+                        </span>
+                    </Link>
+                    <WhatsAppButton />
+                </div>
                 <div className="md:hidden">
                     <button
                         onClick={() => setIsOpen(!isOpen)}
