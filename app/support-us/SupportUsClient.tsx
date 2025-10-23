@@ -54,7 +54,7 @@ export default function SupportUsClient() {
                             {/* PayBox Button */}
                             <div className="flex flex-col items-center">
                                 <a
-                                    href="https://payboxapp.page.link/vT1bQQiMiiiXHZz49"
+                                    href="https://links.payboxapp.com/BF2rkpYCOUb"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
