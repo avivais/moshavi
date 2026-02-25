@@ -34,3 +34,30 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Deployment (EC2)
+
+The app is configured to run on an EC2 instance with PM2.
+
+- **App path:** `/var/www/moshavi` (clone the repo there or deploy via your preferred method).
+- **Build and run:**
+  ```bash
+  cd /var/www/moshavi
+  npm ci
+  npm run build
+  pm2 start ecosystem.config.js
+  # or to restart after updates:
+  pm2 restart moshavi
+  ```
+- **Database:** Run the setup script once to create tables: `npx ts-node db/setup.ts` (or equivalent from the project root).
+
+## Environment variables
+
+Set these on the server (e.g. in `ecosystem.config.js` `env` or a `.env` file). **Do not commit secrets.**
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `ADMIN_PASSWORD` | Yes | Bearer token for admin panel and protected API (e.g. carousel POST). |
+| `NEXT_PUBLIC_GA_ID` | No | Google Analytics ID; omit to disable GA. |
+| `NODE_ENV` | Yes (prod) | Set to `production` for production. |
+| `PORT` | No | Server port (default 3000; set in PM2 config). |
