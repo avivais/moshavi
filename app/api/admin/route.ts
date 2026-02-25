@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import db from '../../../db'
+import { parseBody, adminPostSchema, adminPutSchema, adminDeleteSchema } from '../../../lib/api-schemas'
 
 export async function GET(request: Request) {
     try {
@@ -22,14 +23,21 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
     try {
-        const { type, data } = await request.json()
-        if (!type || !data) throw new Error('Invalid request')
-
         const authHeader = request.headers.get('authorization')
         if (!authHeader || authHeader !== `Bearer ${process.env.ADMIN_PASSWORD}`) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        const body = await request.json()
+        const parsed = parseBody(adminPostSchema, body)
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Validation failed', details: parsed.error.issues },
+                { status: 400 }
+            )
+        }
+
+        const { type, data } = parsed.data
         switch (type) {
             case 'carousel':
                 db.prepare('INSERT INTO carousel_images (src, alt, width, height) VALUES (?, ?, ?, ?)').run(data.src, data.alt, data.width, data.height)
@@ -40,8 +48,6 @@ export async function POST(request: Request) {
             case 'playlist':
                 db.prepare('INSERT INTO playlists (month, year, embedId) VALUES (?, ?, ?)').run(data.month, data.year, data.embedId)
                 break
-            default:
-                throw new Error('Unknown type')
         }
         return NextResponse.json({ success: true })
     } catch (error: unknown) {
@@ -53,14 +59,21 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
     try {
-        const { type, id, data } = await request.json()
-        if (!type || !id || !data) throw new Error('Invalid request')
-
         const authHeader = request.headers.get('authorization')
         if (!authHeader || authHeader !== `Bearer ${process.env.ADMIN_PASSWORD}`) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        const body = await request.json()
+        const parsed = parseBody(adminPutSchema, body)
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Validation failed', details: parsed.error.issues },
+                { status: 400 }
+            )
+        }
+
+        const { type, id, data } = parsed.data
         switch (type) {
             case 'carousel':
                 db.prepare('UPDATE carousel_images SET src = ?, alt = ?, width = ?, height = ? WHERE id = ?').run(data.src, data.alt, data.width, data.height, id)
@@ -71,8 +84,6 @@ export async function PUT(request: Request) {
             case 'playlist':
                 db.prepare('UPDATE playlists SET month = ?, year = ?, embedId = ? WHERE id = ?').run(data.month, data.year, data.embedId, id)
                 break
-            default:
-                throw new Error('Unknown type')
         }
         return NextResponse.json({ success: true })
     } catch (error: unknown) {
@@ -84,14 +95,21 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
     try {
-        const { type, id } = await request.json()
-        if (!type || id === undefined) throw new Error('Invalid request')
-
         const authHeader = request.headers.get('authorization')
         if (!authHeader || authHeader !== `Bearer ${process.env.ADMIN_PASSWORD}`) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        const body = await request.json()
+        const parsed = parseBody(adminDeleteSchema, body)
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Validation failed', details: parsed.error.issues },
+                { status: 400 }
+            )
+        }
+
+        const { type, id } = parsed.data
         switch (type) {
             case 'carousel':
                 db.prepare('DELETE FROM carousel_images WHERE id = ?').run(id)
@@ -102,8 +120,6 @@ export async function DELETE(request: Request) {
             case 'playlist':
                 db.prepare('DELETE FROM playlists WHERE id = ?').run(id)
                 break
-            default:
-                throw new Error('Unknown type')
         }
         return NextResponse.json({ success: true })
     } catch (error: unknown) {
