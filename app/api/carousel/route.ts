@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import Database from 'better-sqlite3';
-
-const db = new Database('./moshavi.db');
+import db from '../../../db';
+import { carouselPostSchema, parseBody } from '../../../lib/api-schemas';
 
 interface CarouselImage {
     id: number;
@@ -24,7 +23,19 @@ export async function GET() {
 
 export async function POST(request: Request) {
     try {
-        const { src, alt, width, height } = await request.json();
+        const authHeader = request.headers.get('authorization');
+        if (!authHeader || authHeader !== `Bearer ${process.env.ADMIN_PASSWORD}`) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+        const body = await request.json();
+        const parsed = parseBody(carouselPostSchema, body);
+        if (!parsed.success) {
+            return NextResponse.json(
+                { error: 'Validation failed', details: parsed.error.issues },
+                { status: 400 }
+            );
+        }
+        const { src, alt, width, height } = parsed.data;
         db.prepare('INSERT INTO carousel_images (src, alt, width, height) VALUES (?, ?, ?, ?)').run(src, alt, width, height);
         console.log('API added image:', { src, alt, width, height });
         return NextResponse.json({ message: 'Image added' }, { status: 201 });
