@@ -51,12 +51,29 @@ interface Data {
 
 type DataItem = CarouselImage | VideoSet | Playlist
 
+interface YoutubeSyncPreviewItem {
+    title: string
+    embedId: string
+    month: string
+    year: number
+}
+
 export default function Admin() {
     const [form, setForm] = useState<FormData>({ type: 'playlist' })
     const [message, setMessage] = useState<string | null>(null)
     const [authToken, setAuthToken] = useState<string | null>(null)
     const [data, setData] = useState<Data | null>(null)
     const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
+
+    // YouTube sync preview state
+    const [syncPreviewLoading, setSyncPreviewLoading] = useState(false)
+    const [syncPreviewError, setSyncPreviewError] = useState<string | null>(null)
+    const [syncLatestInDb, setSyncLatestInDb] = useState<{ year: number; month: string } | null>(null)
+    const [syncToAdd, setSyncToAdd] = useState<YoutubeSyncPreviewItem[]>([])
+    const [syncSelected, setSyncSelected] = useState<Set<number>>(new Set())
+    const [syncApplyLoading, setSyncApplyLoading] = useState(false)
+    const [syncApplyMessage, setSyncApplyMessage] = useState<string | null>(null)
+    const [syncPreviewFetched, setSyncPreviewFetched] = useState(false)
 
     useEffect(() => {
         const token = prompt('Enter admin password')
@@ -172,6 +189,74 @@ export default function Admin() {
                 embedId: item.embedId,
             })
         }
+    }
+
+    const fetchYoutubeSyncPreview = async () => {
+        if (!authToken) return
+        setSyncPreviewError(null)
+        setSyncPreviewLoading(true)
+        try {
+            const res = await fetch('/api/admin/youtube-sync/preview', { headers: { 'Authorization': authToken } })
+            const json = await res.json()
+            if (!res.ok) {
+                setSyncPreviewError(json.error || 'Failed to fetch preview')
+                setSyncToAdd([])
+                setSyncLatestInDb(null)
+                setSyncPreviewFetched(false)
+                return
+            }
+            setSyncLatestInDb(json.latestInDb ?? null)
+            setSyncToAdd(json.toAdd ?? [])
+            setSyncSelected(new Set((json.toAdd ?? []).map((_: unknown, i: number) => i)))
+            setSyncPreviewFetched(true)
+        } catch (e) {
+            setSyncPreviewError(e instanceof Error ? e.message : 'Request failed')
+            setSyncToAdd([])
+            setSyncLatestInDb(null)
+            setSyncPreviewFetched(false)
+        } finally {
+            setSyncPreviewLoading(false)
+        }
+    }
+
+    const applyYoutubeSync = async () => {
+        if (!authToken || syncToAdd.length === 0) return
+        const selected = Array.from(syncSelected).sort((a, b) => a - b)
+        const playlists = selected.map(i => syncToAdd[i]).filter(Boolean)
+        if (playlists.length === 0) return
+        setSyncApplyMessage(null)
+        setSyncApplyLoading(true)
+        try {
+            const res = await fetch('/api/admin/youtube-sync/apply', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+                body: JSON.stringify({ playlists: playlists.map(({ month, year, embedId }) => ({ month, year, embedId })) }),
+            })
+            const json = await res.json()
+            if (!res.ok) {
+                setSyncApplyMessage(json.error || 'Failed to add playlists')
+                return
+            }
+            setSyncApplyMessage(`Added ${json.added ?? playlists.length} playlists.`)
+            setSyncToAdd([])
+            setSyncLatestInDb(null)
+            setSyncSelected(new Set())
+            setSyncPreviewFetched(false)
+            fetch('/api/admin', { headers: { 'Authorization': authToken } }).then(r => r.json().then(setData))
+        } catch (e) {
+            setSyncApplyMessage(e instanceof Error ? e.message : 'Request failed')
+        } finally {
+            setSyncApplyLoading(false)
+        }
+    }
+
+    const toggleSyncSelected = (index: number) => {
+        setSyncSelected(prev => {
+            const next = new Set(prev)
+            if (next.has(index)) next.delete(index)
+            else next.add(index)
+            return next
+        })
     }
 
     if (isAuthenticated === null) {
@@ -327,6 +412,61 @@ export default function Admin() {
                     {form.id ? 'Update' : 'Add'}
                 </button>
             </form>
+
+            {/* YouTube playlist sync */}
+            <div className="mb-8 p-4 bg-gray-800 rounded-lg">
+                <h2 className="text-xl font-bold mb-2">YouTube playlist sync (@avivais)</h2>
+                <p className="text-gray-400 text-sm mb-3">Fetch playlists from your channel and add newer ones to Moshavi.</p>
+                <button
+                    type="button"
+                    onClick={fetchYoutubeSyncPreview}
+                    disabled={syncPreviewLoading}
+                    className="bg-purple-600 px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50"
+                >
+                    {syncPreviewLoading ? 'Fetching…' : 'Fetch preview'}
+                </button>
+                {syncPreviewError && <p className="text-red-500 mt-2">{syncPreviewError}</p>}
+                {syncApplyMessage && <p className={syncApplyMessage.startsWith('Added') ? 'text-green-500 mt-2' : 'text-red-500 mt-2'}>{syncApplyMessage}</p>}
+                {syncToAdd.length > 0 && (
+                    <div className="mt-4">
+                        <p className="text-gray-400 text-sm mb-2">
+                            {syncLatestInDb ? `Latest in Moshavi: ${syncLatestInDb.month} ${syncLatestInDb.year}` : 'No playlists in Moshavi yet.'}
+                        </p>
+                        <p className="text-sm mb-2">Playlists to add (uncheck to exclude):</p>
+                        <ul className="space-y-2 mb-3 max-h-60 overflow-y-auto">
+                            {syncToAdd.map((item, i) => (
+                                <li key={`${item.year}-${item.month}-${item.embedId}`} className="flex items-center gap-2 flex-wrap">
+                                    <input
+                                        type="checkbox"
+                                        checked={syncSelected.has(i)}
+                                        onChange={() => toggleSyncSelected(i)}
+                                        className="rounded"
+                                    />
+                                    <span className="font-poiret-one">{item.title}</span>
+                                    <span className="text-gray-500 text-sm">{item.month} {item.year}</span>
+                                    <span className="text-gray-600 text-xs truncate max-w-[8rem]" title={item.embedId}>{item.embedId}</span>
+                                </li>
+                            ))}
+                        </ul>
+                        <button
+                            type="button"
+                            onClick={applyYoutubeSync}
+                            disabled={syncApplyLoading || syncSelected.size === 0}
+                            className="bg-green-600 px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50"
+                        >
+                            {syncApplyLoading ? 'Adding…' : `Confirm and add (${syncSelected.size})`}
+                        </button>
+                    </div>
+                )}
+                {syncToAdd.length === 0 && !syncPreviewLoading && !syncPreviewError && (
+                    syncPreviewFetched && (
+                        <p className="text-gray-400 mt-2">
+                            No new playlists to add.
+                            {syncLatestInDb && ` Latest in Moshavi: ${syncLatestInDb.month} ${syncLatestInDb.year}.`}
+                        </p>
+                    )
+                )}
+            </div>
 
             {/* Display Existing Data */}
             {data && (
