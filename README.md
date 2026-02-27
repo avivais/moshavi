@@ -50,6 +50,7 @@ The app is configured to run on an EC2 instance with PM2.
   pm2 restart moshavi
   ```
 - **Database:** Run the setup script once to create tables: `npx ts-node db/setup.ts` (or equivalent from the project root).
+- **YouTube sync (admin):** The admin "YouTube playlist sync" feature requires **yt-dlp** installed on the server (e.g. `sudo apt update && sudo apt install -y yt-dlp`, or install from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases)). Without it, "Fetch preview" will fail with an error.
 
 ## Environment variables
 
@@ -59,5 +60,6 @@ Set these on the server (e.g. in `ecosystem.config.js` `env` or a `.env` file). 
 |----------|----------|-------------|
 | `ADMIN_PASSWORD` | Yes | Bearer token for admin panel and protected API (e.g. carousel POST). |
 | `NEXT_PUBLIC_GA_ID` | No | Google Analytics ID; omit to disable GA. |
+| `YOUTUBE_CHANNEL_PLAYLISTS_URL` | No | URL for YouTube channel playlists page (e.g. `https://www.youtube.com/@avivais/playlists`). Defaults to @avivais playlists if unset. |
 | `NODE_ENV` | Yes (prod) | Set to `production` for production. |
 | `PORT` | No | Server port (default 3000; set in PM2 config). |
