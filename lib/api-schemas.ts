@@ -55,6 +55,22 @@ export const adminDeleteSchema = z.object({
   id: z.number().int().positive(),
 });
 
+/** YouTube sync apply: one playlist item (month full name, year, embedId) */
+const FULL_MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'] as const;
+
+export const youtubeSyncPlaylistItemSchema = z.object({
+  month: z.enum(FULL_MONTHS),
+  year: z.number().int().positive(),
+  embedId: z.string().min(1),
+});
+
+/** YouTube sync apply: body with array of playlists to add */
+export const youtubeSyncApplySchema = z.object({
+  playlists: z.array(youtubeSyncPlaylistItemSchema),
+});
+
+export type YoutubeSyncApplyData = z.infer<typeof youtubeSyncApplySchema>;
+
 /**
  * Parse request body with a Zod schema. Use in API routes for validation.
  * Returns { success: true, data } or { success: false, error }.
