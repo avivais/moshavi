@@ -38,7 +38,7 @@ export default function SupportUsClient() {
                         alt={`Support Image ${randomImage + 1}`}
                         width={1200}
                         height={800}
-                        className="w-full h-auto object-cover focus:outline-none"
+                        className="w-full h-auto object-cover"
                     />
                 </div>
 
@@ -57,7 +57,7 @@ export default function SupportUsClient() {
                                     href="https://links.payboxapp.com/BF2rkpYCOUb"
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto"
+                                    className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto focus-ring"
                                 >
                                     <div className="w-8 h-8">
                                         <Image src="/media/logo/paybox.png" width={32} height={32} alt="PayBox Logo" />
