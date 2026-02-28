@@ -121,7 +121,6 @@ export default function MusicClient() {
                                 ></iframe>
                             </div>
                             <div className="p-1 font-poiret-one">
-                                <p className="text-xs text-gray-500 uppercase tracking-wide">Current month</p>
                                 <h2 className="text-sm text-gray-400">{currentPlaylist.month} {currentPlaylist.year}</h2>
                             </div>
                         </div>
@@ -156,7 +155,6 @@ export default function MusicClient() {
                                         ></iframe>
                                     </div>
                                     <div className="p-4 font-poiret-one">
-                                        <p className="text-xs text-gray-500 uppercase tracking-wide">Current month</p>
                                         <h2 className="text-sm text-gray-400">{currentPlaylist.month} {currentPlaylist.year}</h2>
                                     </div>
                                 </div>

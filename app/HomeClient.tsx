@@ -55,7 +55,6 @@ export default function HomeClient() {
         <main className="min-h-screen flex flex-col items-center p-0">
             <section className="mb-4 text-center px-4 font-poiret-one">
                 <div className="text-3xl">MoshAvi #007</div>
-                <p className="text-sm text-gray-400 mt-1">Next event</p>
                 <div className="text-xl">5.3.2026</div>
                 <div className="text-lg font-bonheur-royale">Music Is The Answer</div>
             </section>
