@@ -207,7 +207,7 @@ export default function SetsClient() {
 
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-3">
-                                        <button onClick={handleVideoClick} className="text-white hover:text-gray-300">
+                                        <button onClick={handleVideoClick} className="text-white hover:text-gray-300 focus-ring rounded p-1" aria-label={isPlaying ? 'Pause' : 'Play'}>
                                             {isPlaying ? (
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
                                                     <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z" />
@@ -221,7 +221,7 @@ export default function SetsClient() {
 
                                         {/* Volume Control */}
                                         <div className="flex items-center gap-2">
-                                            <button onClick={toggleMute} className="text-white hover:text-gray-300">
+                                            <button onClick={toggleMute} className="text-white hover:text-gray-300 focus-ring rounded p-1" aria-label={isMuted || (volume === 0 && !isIOS) ? 'Unmute' : 'Mute'}>
                                                 {isMuted || (volume === 0 && !isIOS) ? (
                                                     <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16">
                                                         <path d="M6.717 3.55A.5.5 0 0 1 7.22 4v8a.5.5 0 0 1-.812.39L3.825 10.5H1.5A.5.5 0 0 1 1 10V6a.5.5 0 0 1 .5-.5h2.325l2.605-1.89a.5.5 0 0 1 .287-.06zm6.963 1.582a.5.5 0 0 1 0 .707L12.354 7.165l1.326 1.326a.5.5 0 0 1-.707.707L11.647 7.872l-1.326 1.326a.5.5 0 0 1-.707-.707L10.94 7.165l-1.326-1.326a.5.5 0 0 1 .707-.707L11.647 6.458l1.326-1.326a.5.5 0 0 1 .707 0z" />
@@ -274,10 +274,10 @@ export default function SetsClient() {
                                     <div
                                         key={video.id}
                                         onClick={() => selectVideo(video)}
-                                        className={`p-3 rounded-lg cursor-pointer transition ${currentVideo?.id === video.id
-                                                ? 'bg-gradient-to-r from-yellow-300/20 via-purple-500/20 to-cyan-600/20 border border-purple-500/50'
-                                                : 'hover:bg-gray-800'
-                                            }`}
+                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectVideo(video); } }}
+                                        tabIndex={0}
+                                        role="button"
+                                        className={`p-3 rounded-lg cursor-pointer transition focus-ring ${currentVideo?.id === video.id ? 'selected-card' : 'hover:bg-gray-800'}`}
                                     >
                                         <h3 className="font-poiret-one">{video.title}</h3>
                                         <p className="text-sm text-gray-400">{video.date}</p>
