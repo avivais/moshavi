@@ -58,11 +58,20 @@
     opacity: 1 !important;
 }
 
-/* Remove all outlines and borders on focus for carousel images and wrappers */
+/* Keyboard-visible focus for carousel (do not remove focus indication) */
+.slick-slide:focus-visible,
+.slick-slide:focus-visible img,
+.slick-slide:focus-visible div {
+    outline: none;
+    box-shadow: 0 0 0 2px white;
+    box-sizing: border-box;
+}
+.slick-slide:focus {
+    outline: none;
+}
 .slick-slide,
 .slick-slide img,
 .slick-slide div {
-    outline: none !important;
     border: none !important;
 }
 

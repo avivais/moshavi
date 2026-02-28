@@ -34,13 +34,11 @@ export default function HomeClient() {
     useEffect(() => {
         async function fetchImages() {
             try {
-                console.log('Fetching images from /api/carousel');
                 const res = await fetch('/api/carousel');
                 if (!res.ok) {
                     throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
                 }
                 const data: CarouselImage[] = await res.json();
-                console.log('Fetched data:', data);
                 setImages(data);
             } catch (err: unknown) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to load images';
@@ -57,6 +55,7 @@ export default function HomeClient() {
         <main className="min-h-screen flex flex-col items-center p-0">
             <section className="mb-4 text-center px-4 font-poiret-one">
                 <div className="text-3xl">MoshAvi #007</div>
+                <p className="text-sm text-gray-400 mt-1">Next event</p>
                 <div className="text-xl">5.3.2026</div>
                 <div className="text-lg font-bonheur-royale">Music Is The Answer</div>
             </section>
@@ -64,24 +63,28 @@ export default function HomeClient() {
             <section className="w-screen mb-6">
                 <div className="relative md:max-w-2xl mx-auto">
                     {loading ? (
-                        <div className="text-center">Loading...</div>
+                        <div className="w-full aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
+                            <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+                            <span className="sr-only">Loading carousel</span>
+                        </div>
                     ) : images.length > 0 ? (
                         <Slider {...carouselSettings}>
                             {images.map((image) => (
-                                <div key={image.src}>
+                                <div key={image.src} className="focus-within:ring-2 focus-within:ring-white focus-within:ring-offset-2 focus-within:ring-offset-black rounded-lg">
                                     <Image
                                         src={image.src}
                                         alt={image.alt}
                                         width={image.width}
                                         height={image.height}
-                                        className="w-full h-auto object-cover focus:outline-none"
+                                        className="w-full h-auto object-cover rounded-lg"
                                     />
                                 </div>
                             ))}
                         </Slider>
                     ) : (
-                        <div className="text-center">
-                            {error || 'No images available'}
+                        <div className="text-center py-8 px-4">
+                            <p className="text-red-400">Something went wrong loading the carousel.</p>
+                            {error && <p className="text-gray-500 text-sm mt-2 sr-only">{error}</p>}
                         </div>
                     )}
                 </div>
