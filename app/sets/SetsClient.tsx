@@ -244,7 +244,7 @@ export default function SetsClient() {
     }
 
     return (
-                <main className="min-h-screen p-2 md:p-4 max-w-content-wide mx-auto">
+        <main className="min-h-screen p-2 md:p-4 max-w-content-wide mx-auto">
             <h1 className="text-3xl mb-6 font-poiret-one text-center md:text-left">Past Sets</h1>
 
             <div className="flex flex-col md:flex-row gap-8">
@@ -285,6 +285,7 @@ export default function SetsClient() {
                                     </div>
                                 )}
 
+                            </div>
 
                             {/* Custom controls */}
                             <div className="p-4 bg-black bg-opacity-50">
