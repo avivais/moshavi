@@ -3,16 +3,33 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import WhatsAppButton from './WhatsAppButton'
+
+function NavLink({ href, children, onClick }: { href: string; children: React.ReactNode; onClick?: () => void }) {
+    const pathname = usePathname()
+    const isActive = pathname === href
+    return (
+        <Link
+            href={href}
+            onClick={onClick}
+            className={`block p-4 w-full border-b border-gray-700 text-white hover:bg-gray-800 transition-colors focus-ring ${isActive ? 'underline underline-offset-2' : ''}`}
+            aria-current={isActive ? 'page' : undefined}
+        >
+            {children}
+        </Link>
+    )
+}
 
 export default function Nav() {
     const [isOpen, setIsOpen] = useState(false)
+    const pathname = usePathname()
 
     return (
         <nav className="w-full bg-black p-2 fixed top-0 left-0 z-[100] font-poiret-one font-normal">
             <div className="flex justify-between items-center md:max-w-2xl mx-auto">
                 <div className="flex items-center space-x-2">
-                    <Link href="/" className="flex items-center space-x-2">
+                    <Link href="/" className="flex items-center space-x-2 focus-ring rounded">
                         <Image
                             src="/media/logo/logo.svg"
                             alt="MoshAvi Productions Logo"
@@ -29,7 +46,8 @@ export default function Nav() {
                 <div className="md:hidden">
                     <button
                         onClick={() => setIsOpen(!isOpen)}
-                        className="text-white focus:outline-none"
+                        className="text-white focus-ring rounded p-1"
+                        aria-label="Toggle menu"
                     >
                         <svg
                             className="w-6 h-6"
@@ -53,33 +71,28 @@ export default function Nav() {
                     } overflow-hidden`}
                 >
                     <div className="w-full">
-                        <Link
-                            href="/support-us"
-                            onClick={() => setIsOpen(false)}
-                            className="block p-4 w-full border-b border-gray-700 text-white hover:bg-gray-800 transition-colors"
-                        >
-                            Support Us
-                        </Link>
-                        <Link
-                            href="/sets"
-                            onClick={() => setIsOpen(false)}
-                            className="block p-4 w-full border-b border-gray-700 text-white hover:bg-gray-800 transition-colors"
-                        >
-                            Sets
-                        </Link>
+                        <NavLink href="/support-us" onClick={() => setIsOpen(false)}>Support Us</NavLink>
+                        <NavLink href="/sets" onClick={() => setIsOpen(false)}>Sets</NavLink>
                         <Link
                             href="/music"
                             onClick={() => setIsOpen(false)}
-                            className="block p-4 w-full text-white hover:bg-gray-800 transition-colors"
+                            className={`block p-4 w-full text-white hover:bg-gray-800 transition-colors focus-ring ${pathname === '/music' ? 'underline underline-offset-2' : ''}`}
+                            aria-current={pathname === '/music' ? 'page' : undefined}
                         >
                             Music
                         </Link>
                     </div>
                 </div>
                 <ul className="hidden md:flex space-x-4">
-                    <li><Link href="/support-us">Support Us</Link></li>
-                    <li><Link href="/sets">Sets</Link></li>
-                    <li><Link href="/music">Music</Link></li>
+                    <li>
+                        <Link href="/support-us" className={`focus-ring rounded px-1 ${pathname === '/support-us' ? 'underline underline-offset-2' : ''}`} aria-current={pathname === '/support-us' ? 'page' : undefined}>Support Us</Link>
+                    </li>
+                    <li>
+                        <Link href="/sets" className={`focus-ring rounded px-1 ${pathname === '/sets' ? 'underline underline-offset-2' : ''}`} aria-current={pathname === '/sets' ? 'page' : undefined}>Sets</Link>
+                    </li>
+                    <li>
+                        <Link href="/music" className={`focus-ring rounded px-1 ${pathname === '/music' ? 'underline underline-offset-2' : ''}`} aria-current={pathname === '/music' ? 'page' : undefined}>Music</Link>
+                    </li>
                 </ul>
             </div>
         </nav>
