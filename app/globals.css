@@ -58,6 +58,13 @@
     opacity: 1 !important;
 }
 
+/* Keyboard focus for carousel dot buttons */
+.slick-dots li button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px white;
+    border-radius: 50%;
+}
+
 /* Keyboard-visible focus for carousel (do not remove focus indication) */
 .slick-slide:focus-visible,
 .slick-slide:focus-visible img,

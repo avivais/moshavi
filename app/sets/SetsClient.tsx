@@ -385,7 +385,10 @@ export default function SetsClient() {
                         <h2 className="text-xl mb-4 font-poiret-one">Available Sets</h2>
                         <div className="space-y-3">
                             {error ? (
-                                <p>{error}</p>
+                                <>
+                                    <p className="text-red-400">Something went wrong loading sets.</p>
+                                    <p className="sr-only">{error}</p>
+                                </>
                             ) : videoSets.length > 0 ? (
                                 memoizedVideoSets.map((video) => (
                                     <div

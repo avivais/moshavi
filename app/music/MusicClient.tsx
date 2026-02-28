@@ -105,7 +105,10 @@ export default function MusicClient() {
                 <div className="h-[3rem]"></div>
                 <div className="fixed top-12 left-0 right-0 z-[90] bg-black px-2 md:px-4 pt-2 pb-1">
                     <h1 className="text-2xl font-poiret-one mb-2 text-center">Monthly Playlists</h1>
-                    {error && <p className="text-red-500">{error}</p>}
+                    {error && (
+                        <p className="text-red-400">Something went wrong loading playlists.</p>
+                    )}
+                    {error && <p className="sr-only">{error}</p>}
                     {currentPlaylist && (
                         <div className="bg-gray-900 rounded-lg overflow-hidden mb-0">
                             <div className="relative aspect-video">
@@ -137,7 +140,10 @@ export default function MusicClient() {
                 <div className="flex gap-8">
                     <div className="w-2/3">
                         <div className="sticky top-16">
-                            {error && <p className="text-red-500">{error}</p>}
+                            {error && (
+                                <p className="text-red-400">Something went wrong loading playlists.</p>
+                            )}
+                            {error && <p className="sr-only">{error}</p>}
                             {currentPlaylist ? (
                                 <div className="bg-gray-900 rounded-lg overflow-hidden">
                                     <div className="relative aspect-video">
