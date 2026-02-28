@@ -71,9 +71,9 @@ export default function MusicClient() {
     const renderPlaylistItems = () => (
         playlistsByYear.length > 0 ? (
             <div className="space-y-6">
-                {playlistsByYear.map(({ year, playlists }) => (
-                    <div key={year}>
-                        <h3 className="text-lg font-karantina mb-2 text-gradient bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600 bg-clip-text text-transparent">
+                {playlistsByYear.map(({ year, playlists }, yearIndex) => (
+                    <div key={year} className={yearIndex > 0 ? 'mt-6 pt-4 border-t border-gray-700' : ''}>
+                        <h3 className="text-lg font-karantina mb-3 text-lg font-medium text-yellow-200/90">
                             {year}
                         </h3>
                         <div className="space-y-3">
@@ -81,10 +81,10 @@ export default function MusicClient() {
                                 <div
                                     key={playlist.id}
                                     onClick={() => selectPlaylist(playlist)}
-                                    className={`p-3 rounded-lg cursor-pointer transition ${currentPlaylist?.id === playlist.id
-                                            ? 'bg-gradient-to-r from-yellow-300/20 via-purple-500/20 to-cyan-600/20 border border-purple-500/50'
-                                            : 'hover:bg-gray-800'
-                                        }`}
+                                    className={`p-3 rounded-lg cursor-pointer transition focus-ring ${currentPlaylist?.id === playlist.id ? 'selected-card' : 'hover:bg-gray-800'}`}
+                                    tabIndex={0}
+                                    role="button"
+                                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectPlaylist(playlist); } }}
                                 >
                                     <h4 className="font-poiret-one">{playlist.month}</h4>
                                 </div>
@@ -118,6 +118,7 @@ export default function MusicClient() {
                                 ></iframe>
                             </div>
                             <div className="p-1 font-poiret-one">
+                                <p className="text-xs text-gray-500 uppercase tracking-wide">Current month</p>
                                 <h2 className="text-sm text-gray-400">{currentPlaylist.month} {currentPlaylist.year}</h2>
                             </div>
                         </div>
@@ -149,6 +150,7 @@ export default function MusicClient() {
                                         ></iframe>
                                     </div>
                                     <div className="p-4 font-poiret-one">
+                                        <p className="text-xs text-gray-500 uppercase tracking-wide">Current month</p>
                                         <h2 className="text-sm text-gray-400">{currentPlaylist.month} {currentPlaylist.year}</h2>
                                     </div>
                                 </div>
