@@ -31,7 +31,7 @@ export default function SupportUsClient() {
 
     return (
         <main className="min-h-screen flex flex-col items-center p-0 bg-black text-white">
-            <section className="mb-6 text-center w-screen md:max-w-2xl">
+            <section className="mb-6 text-center w-screen md:max-w-2xl lg:max-w-content-wide mx-auto">
                 <div className="w-full mb-6">
                     <Image
                         src={`/media/support-us/${images[randomImage]}`}

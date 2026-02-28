@@ -132,7 +132,7 @@ export default function MusicClient() {
                 </div>
             </div>
             {/* DESKTOP LAYOUT */}
-            <div className="hidden md:block px-4 pb-8">
+            <div className="hidden md:block px-4 pb-8 max-w-content-wide mx-auto">
                 <h1 className="text-3xl mb-4 font-poiret-one">Monthly Playlists</h1>
                 <div className="flex gap-8">
                     <div className="w-2/3">

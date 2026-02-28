@@ -61,7 +61,7 @@ export default function HomeClient() {
             </section>
 
             <section className="w-screen mb-6">
-                <div className="relative md:max-w-2xl mx-auto">
+                <div className="relative md:max-w-2xl lg:max-w-content-wide mx-auto">
                     {loading ? (
                         <div className="w-full aspect-video bg-gray-900 rounded-lg flex items-center justify-center">
                             <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" />

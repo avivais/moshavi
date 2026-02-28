@@ -90,3 +90,11 @@ body {
     background-color: #000000;
     color: #ffffff;
 }
+
+/* Optional: subtle desktop background so sides aren't flat black */
+@media (min-width: 1024px) {
+    body {
+        background-image: radial-gradient(ellipse 100% 60% at 50% 0%, rgba(20, 20, 30, 0.6), transparent 70%);
+        background-color: #000000;
+    }
+}
