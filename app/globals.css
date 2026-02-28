@@ -2,6 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Design tokens: focus ring for keyboard accessibility */
+@layer components {
+    .focus-ring {
+        @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-black;
+    }
+
+    /* Shared selected state for list items (Music playlists, Sets list) */
+    .selected-card {
+        @apply bg-gradient-to-r from-yellow-300/20 via-purple-500/20 to-cyan-600/20 border border-purple-500/50;
+    }
+}
+
 .font-poiret-one {
     font-family: var(--font-poiret-one);
 }
