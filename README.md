@@ -54,7 +54,7 @@ The app is configured to run on an EC2 instance with PM2.
 
 ## Environment variables
 
-Set these on the server (e.g. in `ecosystem.config.js` `env` or a `.env` file). **Do not commit secrets.**
+Set these on the server (e.g. in `ecosystem.config.js` `env` or a `.env` file). **Do not commit secrets.** For the local deploy script (Cloudflare cache purge), copy `.env.example` to `.env` in the repo root and set `CLOUDFLARE_ZONE_ID` and `CLOUDFLARE_API_TOKEN`; see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 | Variable | Required | Description |
 |----------|----------|-------------|

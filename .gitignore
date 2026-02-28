@@ -30,8 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
+# env files (do not commit .env; copy .env.example to .env and fill in)
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -43,3 +44,6 @@ next-env.d.ts
 public/media/sets/*
 
 moshavi.db
+
+# build-time info (generated during npm run build)
+.build-info.json
