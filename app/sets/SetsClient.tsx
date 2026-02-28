@@ -22,6 +22,12 @@ export default function SetsClient() {
     const [duration, setDuration] = useState(0)
     const [currentTime, setCurrentTime] = useState(0)
     const [isIOS, setIsIOS] = useState(false) // iOS detection
+    const [isVideoHovered, setIsVideoHovered] = useState(false)
+    const [progressHoverTime, setProgressHoverTime] = useState<number | null>(null)
+    const [isProgressHovered, setIsProgressHovered] = useState(false)
+    const [isDragging, setIsDragging] = useState(false)
+    const [bufferedPercent, setBufferedPercent] = useState(0)
+    const didDragRef = useRef(false)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const progressRef = useRef<HTMLDivElement>(null)
@@ -70,22 +76,35 @@ export default function SetsClient() {
             }
         }
 
+        const updateBuffered = () => {
+            if (!video.duration || video.buffered.length === 0) return
+            const end = video.buffered.end(video.buffered.length - 1)
+            setBufferedPercent((end / video.duration) * 100)
+        }
+
         const handleLoadedMetadata = () => {
             setDuration(video.duration)
             video.volume = volume
             video.muted = isMuted || volume === 0
+            updateBuffered()
         }
 
         video.addEventListener('timeupdate', updateProgress)
         video.addEventListener('loadedmetadata', handleLoadedMetadata)
+        video.addEventListener('progress', updateBuffered)
 
         return () => {
             video.removeEventListener('timeupdate', updateProgress)
             video.removeEventListener('loadedmetadata', handleLoadedMetadata)
+            video.removeEventListener('progress', updateBuffered)
         }
     }, [currentVideo, volume, isMuted])
 
     const handleVideoClick = () => {
+        if (didDragRef.current) {
+            didDragRef.current = false
+            return
+        }
         const video = videoRef.current
         if (!video) return
 
@@ -97,14 +116,77 @@ export default function SetsClient() {
         setIsPlaying(!isPlaying)
     }
 
-    const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const getProgressPosition = (clientX: number) => {
         const progressBar = progressRef.current
         const video = videoRef.current
-        if (!progressBar || !video) return
-
+        if (!progressBar || !video || !video.duration) return { pos: 0, time: 0 }
         const rect = progressBar.getBoundingClientRect()
-        const pos = (e.clientX - rect.left) / rect.width
-        video.currentTime = pos * video.duration
+        const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+        return { pos, time: pos * video.duration }
+    }
+
+    const handleProgressMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+        const { time } = getProgressPosition(e.clientX)
+        setProgressHoverTime(time)
+    }
+
+    const handleProgressMouseLeave = () => {
+        setIsProgressHovered(false)
+        setProgressHoverTime(null)
+    }
+
+    const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+        e.preventDefault()
+        const video = videoRef.current
+        if (!video) return
+        didDragRef.current = false
+        setIsDragging(true)
+        const { pos, time } = getProgressPosition(e.clientX)
+        video.currentTime = time
+        setProgress(pos * 100)
+        setCurrentTime(time)
+
+        const onMouseMove = (moveEvent: MouseEvent) => {
+            didDragRef.current = true
+            const { pos: movePos, time: moveTime } = getProgressPosition(moveEvent.clientX)
+            video.currentTime = moveTime
+            setProgress(movePos * 100)
+            setCurrentTime(moveTime)
+        }
+        const onMouseUp = () => {
+            setIsDragging(false)
+            document.removeEventListener('mousemove', onMouseMove)
+            document.removeEventListener('mouseup', onMouseUp)
+        }
+        document.addEventListener('mousemove', onMouseMove)
+        document.addEventListener('mouseup', onMouseUp)
+    }
+
+    const handleProgressTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
+        const video = videoRef.current
+        if (!video || e.touches.length === 0) return
+        didDragRef.current = false
+        setIsDragging(true)
+        const { pos, time } = getProgressPosition(e.touches[0].clientX)
+        video.currentTime = time
+        setProgress(pos * 100)
+        setCurrentTime(time)
+
+        const onTouchMove = (moveEvent: TouchEvent) => {
+            if (moveEvent.touches.length === 0) return
+            didDragRef.current = true
+            const { pos: movePos, time: moveTime } = getProgressPosition(moveEvent.touches[0].clientX)
+            video.currentTime = moveTime
+            setProgress(movePos * 100)
+            setCurrentTime(moveTime)
+        }
+        const onTouchEnd = () => {
+            setIsDragging(false)
+            document.removeEventListener('touchmove', onTouchMove)
+            document.removeEventListener('touchend', onTouchEnd)
+        }
+        document.addEventListener('touchmove', onTouchMove, { passive: true })
+        document.addEventListener('touchend', onTouchEnd)
     }
 
     const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -170,7 +252,12 @@ export default function SetsClient() {
                 <div className="w-full md:w-2/3">
                     {currentVideo && (
                         <div className="bg-gray-900 rounded-lg overflow-hidden">
-                            <div className="relative aspect-video" onClick={handleVideoClick}>
+                            <div
+                                className="relative aspect-video cursor-pointer"
+                                onClick={handleVideoClick}
+                                onMouseEnter={() => setIsVideoHovered(true)}
+                                onMouseLeave={() => setIsVideoHovered(false)}
+                            >
                                 <video
                                     ref={videoRef}
                                     src={currentVideo.src}
@@ -181,28 +268,58 @@ export default function SetsClient() {
                                 >
                                     Your browser does not support the video tag.
                                 </video>
-                                {!isPlaying && (
-                                    <div className="absolute inset-0 flex items-center justify-center">
-                                        <button className="bg-white bg-opacity-20 rounded-full p-5 hover:bg-opacity-30 transition">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="white" viewBox="0 0 16 16">
-                                                <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z" />
-                                            </svg>
-                                        </button>
+                                {/* Hover overlay: show play when paused, pause when playing */}
+                                {(isVideoHovered || !isPlaying) && (
+                                    <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${isVideoHovered && isPlaying ? 'bg-black/30' : 'bg-black/0'}`}>
+                                        <div className={`bg-white rounded-full transition-opacity ${isVideoHovered ? 'bg-opacity-30' : 'bg-opacity-20'} p-5 hover:bg-opacity-40`}>
+                                            {isPlaying ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="white" viewBox="0 0 16 16">
+                                                    <path d="M5.5 3.5A1.5 1.5 0 0 1 7 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5zm5 0A1.5 1.5 0 0 1 12 5v6a1.5 1.5 0 0 1-3 0V5a1.5 1.5 0 0 1 1.5-1.5z" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="white" viewBox="0 0 16 16">
+                                                    <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z" />
+                                                </svg>
+                                            )}
+                                        </div>
                                     </div>
                                 )}
-                            </div>
+
 
                             {/* Custom controls */}
                             <div className="p-4 bg-black bg-opacity-50">
-                                <div
-                                    ref={progressRef}
-                                    className="w-full h-2 bg-gray-700 rounded cursor-pointer mb-3"
-                                    onClick={handleProgressClick}
-                                >
+                                <div className="relative mb-3 group">
+                                    {/* Hover time tooltip */}
+                                    {isProgressHovered && progressHoverTime !== null && !isDragging && (
+                                        <div className="absolute bottom-full left-0 mb-1 px-2 py-1 bg-black/90 rounded text-white text-xs whitespace-nowrap transform -translate-x-1/2" style={{ left: `${duration > 0 ? (progressHoverTime / duration) * 100 : 0}%` }}>
+                                            {formatTime(progressHoverTime)}
+                                        </div>
+                                    )}
                                     <div
-                                        className="h-full bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600 rounded"
-                                        style={{ width: `${progress}%` }}
-                                    ></div>
+                                        ref={progressRef}
+                                        className={`relative w-full h-2 rounded cursor-pointer transition-all ${isProgressHovered || isDragging ? 'h-2.5' : ''} bg-gray-700`}
+                                        onMouseDown={handleProgressMouseDown}
+                                        onTouchStart={handleProgressTouchStart}
+                                        onMouseEnter={() => { setIsProgressHovered(true); }}
+                                        onMouseMove={handleProgressMouseMove}
+                                        onMouseLeave={handleProgressMouseLeave}
+                                    >
+                                        {/* Buffered segment */}
+                                        <div
+                                            className="absolute inset-0 rounded bg-gray-600"
+                                            style={{ width: `${bufferedPercent}%` }}
+                                        />
+                                        {/* Progress fill */}
+                                        <div
+                                            className="absolute inset-y-0 left-0 rounded bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600"
+                                            style={{ width: `${progress}%` }}
+                                        />
+                                        {/* Thumb */}
+                                        <div
+                                            className="absolute top-1/2 w-3 h-3 -mt-1.5 rounded-full bg-white shadow cursor-grab active:cursor-grabbing"
+                                            style={{ left: `calc(${progress}% - 6px)` }}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="flex items-center justify-between">
