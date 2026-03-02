@@ -67,7 +67,7 @@ export default function Nav() {
                 </div>
                 <div
                     className={`md:hidden fixed top-12 left-0 w-full bg-black transition-all duration-300 ease-in-out z-50 ${
-                        isOpen ? 'max-h-48 opacity-100' : 'max-h-0 opacity-0'
+                        isOpen ? 'max-h-80 opacity-100' : 'max-h-0 opacity-0'
                     } overflow-hidden`}
                 >
                     <div className="w-full">

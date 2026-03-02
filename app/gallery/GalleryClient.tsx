@@ -245,6 +245,10 @@ function Lightbox({
     onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
     const item = items[currentIndex];
+    const prevIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
+    const nextIndex = currentIndex >= items.length - 1 ? 0 : currentIndex + 1;
+    const prevItem = items[prevIndex];
+    const nextItem = items[nextIndex];
     const [mounted, setMounted] = useState(false);
     const closeRef = useRef<HTMLButtonElement>(null);
     const viewportRef = useRef<HTMLDivElement>(null);
@@ -288,12 +292,12 @@ function Lightbox({
         if (touchStartX.current == null) return;
         touchStartX.current = null;
         const width = viewportRef.current?.clientWidth ?? 300;
-        if (dragOffset > SWIPE_THRESHOLD && hasNext) {
-            pendingNavigate.current = 'next';
+        if (dragOffset > SWIPE_THRESHOLD && hasPrev) {
+            pendingNavigate.current = 'prev';
             setIsAnimating(true);
             setDragOffset(width);
-        } else if (dragOffset < -SWIPE_THRESHOLD && hasPrev) {
-            pendingNavigate.current = 'prev';
+        } else if (dragOffset < -SWIPE_THRESHOLD && hasNext) {
+            pendingNavigate.current = 'next';
             setIsAnimating(true);
             setDragOffset(-width);
         } else {
@@ -315,9 +319,35 @@ function Lightbox({
     if (!mounted) return null;
     if (!item) return null;
 
-    const slidePercent = n > 0 ? 100 / n : 100;
-    const baseTranslate = -currentIndex * slidePercent;
-    const translateX = `calc(${baseTranslate}% + ${dragOffset}px)`;
+    const renderSlide = (slide: GalleryItem, key: string) => (
+        <div
+            key={key}
+            className="flex-shrink-0 w-full h-full flex flex-col items-center justify-center px-2"
+        >
+            {slide.type === 'video' ? (
+                <video
+                    src={slide.src}
+                    controls
+                    className="max-w-full max-h-[80vh] w-full object-contain"
+                    poster={slide.thumbnail_src || undefined}
+                    preload="auto"
+                    playsInline
+                />
+            ) : (
+                <img
+                    src={slide.src}
+                    alt={slide.caption || slide.alt || ''}
+                    className="max-w-full max-h-[80vh] w-full object-contain"
+                />
+            )}
+            {(slide.caption || slide.date) && (
+                <div className="mt-2 text-white text-center text-sm">
+                    {slide.caption && <p>{slide.caption}</p>}
+                    {slide.date && <p className="text-gray-400">{slide.date}</p>}
+                </div>
+            )}
+        </div>
+    );
 
     return (
         <div
@@ -375,42 +405,15 @@ function Lightbox({
                 <div
                     className="flex h-full w-full"
                     style={{
-                        width: `${n * 100}%`,
-                        transform: `translateX(${translateX})`,
+                        width: '300%',
+                        transform: `translateX(calc(-33.3333% + ${dragOffset}px))`,
                         transition: isAnimating ? 'transform 0.25s ease-out' : 'none',
                     }}
                     onTransitionEnd={handleTransitionEnd}
                 >
-                    {items.map((slide) => (
-                        <div
-                            key={slide.id}
-                            className="flex-shrink-0 flex flex-col items-center justify-center h-full px-2"
-                            style={{ width: `${100 / n}%` }}
-                        >
-                            {slide.type === 'video' ? (
-                                <video
-                                    src={slide.src}
-                                    controls
-                                    className="max-w-full max-h-[80vh] w-full object-contain"
-                                    poster={slide.thumbnail_src || undefined}
-                                    preload="auto"
-                                    playsInline
-                                />
-                            ) : (
-                                <img
-                                    src={slide.src}
-                                    alt={slide.caption || slide.alt || ''}
-                                    className="max-w-full max-h-[80vh] w-full object-contain"
-                                />
-                            )}
-                            {(slide.caption || slide.date) && (
-                                <div className="mt-2 text-white text-center text-sm">
-                                    {slide.caption && <p>{slide.caption}</p>}
-                                    {slide.date && <p className="text-gray-400">{slide.date}</p>}
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                    {renderSlide(prevItem, `prev-${prevItem.id}`)}
+                    {renderSlide(item, `current-${item.id}`)}
+                    {renderSlide(nextItem, `next-${nextItem.id}`)}
                 </div>
             </div>
         </div>
