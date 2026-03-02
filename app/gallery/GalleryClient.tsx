@@ -212,16 +212,32 @@ export default function GalleryClient() {
                     onClose={closeLightbox}
                     onPrev={goPrev}
                     onNext={goNext}
-                    hasPrev={flatItems.length > 1}
-                    hasNext={flatItems.length > 1}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Escape') closeLightbox();
-                        if (e.key === 'ArrowLeft') goPrev();
-                        if (e.key === 'ArrowRight') goNext();
-                    }}
                 />
             )}
         </main>
+    );
+}
+
+function LightboxSlide({ item }: { item: GalleryItem }) {
+    return (
+        <div className="flex-shrink-0 w-screen h-full flex items-center justify-center p-4">
+            {item.type === 'video' ? (
+                <video
+                    src={item.src}
+                    controls
+                    className="max-w-full max-h-full object-contain"
+                    poster={item.thumbnail_src || undefined}
+                    playsInline
+                />
+            ) : (
+                <img
+                    src={item.src}
+                    alt={item.caption || item.alt || ''}
+                    className="max-w-full max-h-full object-contain select-none"
+                    draggable={false}
+                />
+            )}
+        </div>
     );
 }
 
@@ -231,191 +247,166 @@ function Lightbox({
     onClose,
     onPrev,
     onNext,
-    hasPrev,
-    hasNext,
-    onKeyDown,
 }: {
     items: GalleryItem[];
     currentIndex: number;
     onClose: () => void;
     onPrev: () => void;
     onNext: () => void;
-    hasPrev: boolean;
-    hasNext: boolean;
-    onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
     const item = items[currentIndex];
-    const prevIndex = currentIndex <= 0 ? items.length - 1 : currentIndex - 1;
-    const nextIndex = currentIndex >= items.length - 1 ? 0 : currentIndex + 1;
-    const prevItem = items[prevIndex];
-    const nextItem = items[nextIndex];
-    const [mounted, setMounted] = useState(false);
+    const prevItem = items[currentIndex > 0 ? currentIndex - 1 : items.length - 1];
+    const nextItem = items[currentIndex < items.length - 1 ? currentIndex + 1 : 0];
+    const canSwipe = items.length > 1;
+
+    const trackRef = useRef<HTMLDivElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
-    const viewportRef = useRef<HTMLDivElement>(null);
-    const [dragOffset, setDragOffset] = useState(0);
-    const [isAnimating, setIsAnimating] = useState(false);
-    const pendingNavigate = useRef<'next' | 'prev' | null>(null);
-    const touchStartX = useRef<number | null>(null);
-    const SWIPE_THRESHOLD = 50;
-    const n = items.length;
+    const touchStartX = useRef(0);
+    const dragging = useRef(false);
+    const locked = useRef(false);
+    const swipeDir = useRef<'prev' | 'next' | null>(null);
 
     useEffect(() => {
-        setMounted(true);
         closeRef.current?.focus();
-        const h = (e: KeyboardEvent) => {
+        document.body.style.overflow = 'hidden';
+        const onKey = (e: KeyboardEvent) => {
             if (e.key === 'Escape') onClose();
             if (e.key === 'ArrowLeft') onPrev();
             if (e.key === 'ArrowRight') onNext();
         };
-        window.addEventListener('keydown', h);
-        return () => window.removeEventListener('keydown', h);
+        window.addEventListener('keydown', onKey);
+        return () => {
+            document.body.style.overflow = '';
+            window.removeEventListener('keydown', onKey);
+        };
     }, [onClose, onPrev, onNext]);
 
+    useEffect(() => {
+        if (trackRef.current) {
+            trackRef.current.style.transition = 'none';
+            trackRef.current.style.transform = 'translateX(-100vw)';
+        }
+    }, [currentIndex]);
+
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
-        if (n <= 1) return;
+        if (!canSwipe || locked.current) return;
+        dragging.current = true;
         touchStartX.current = e.touches[0].clientX;
-        setIsAnimating(false);
-    }, [n]);
+        if (trackRef.current) {
+            trackRef.current.style.transition = 'none';
+        }
+    }, [canSwipe]);
 
     const handleTouchMove = useCallback((e: React.TouchEvent) => {
-        if (touchStartX.current == null || n <= 1) return;
-        const x = e.touches[0].clientX;
-        let delta = touchStartX.current - x;
-        const max = viewportRef.current?.clientWidth ?? 300;
-        const limit = max * 0.6;
-        delta = Math.max(-limit, Math.min(limit, delta));
-        setDragOffset(delta);
-        e.preventDefault();
-    }, [n]);
+        if (!dragging.current || !trackRef.current) return;
+        const dx = e.touches[0].clientX - touchStartX.current;
+        trackRef.current.style.transform = `translateX(calc(-100vw + ${dx}px))`;
+    }, []);
 
-    const handleTouchEnd = useCallback(() => {
-        if (touchStartX.current == null) return;
-        touchStartX.current = null;
-        const width = viewportRef.current?.clientWidth ?? 300;
-        if (dragOffset > SWIPE_THRESHOLD && hasPrev) {
-            pendingNavigate.current = 'prev';
-            setIsAnimating(true);
-            setDragOffset(width);
-        } else if (dragOffset < -SWIPE_THRESHOLD && hasNext) {
-            pendingNavigate.current = 'next';
-            setIsAnimating(true);
-            setDragOffset(-width);
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (!dragging.current || !trackRef.current) return;
+        dragging.current = false;
+        const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const threshold = window.innerWidth * 0.2;
+        const track = trackRef.current;
+
+        track.style.transition = 'transform 0.25s ease-out';
+
+        if (dx > threshold) {
+            locked.current = true;
+            swipeDir.current = 'prev';
+            track.style.transform = 'translateX(0vw)';
+        } else if (dx < -threshold) {
+            locked.current = true;
+            swipeDir.current = 'next';
+            track.style.transform = 'translateX(-200vw)';
         } else {
-            pendingNavigate.current = null;
-            setIsAnimating(true);
-            setDragOffset(0);
+            track.style.transform = 'translateX(-100vw)';
         }
-    }, [dragOffset, hasPrev, hasNext]);
+    }, []);
 
     const handleTransitionEnd = useCallback(() => {
-        const pending = pendingNavigate.current;
-        pendingNavigate.current = null;
-        setDragOffset(0);
-        setIsAnimating(false);
-        if (pending === 'next') onNext();
-        if (pending === 'prev') onPrev();
-    }, [onNext, onPrev]);
+        if (!locked.current || !trackRef.current) return;
+        const dir = swipeDir.current;
+        swipeDir.current = null;
+        locked.current = false;
+        trackRef.current.style.transition = 'none';
+        trackRef.current.style.transform = 'translateX(-100vw)';
+        if (dir === 'prev') onPrev();
+        if (dir === 'next') onNext();
+    }, [onPrev, onNext]);
 
-    if (!mounted) return null;
     if (!item) return null;
-
-    const renderSlide = (slide: GalleryItem, key: string) => (
-        <div
-            key={key}
-            className="flex-shrink-0 w-full h-full flex flex-col items-center justify-center px-2"
-        >
-            {slide.type === 'video' ? (
-                <video
-                    src={slide.src}
-                    controls
-                    className="max-w-full max-h-[80vh] w-full object-contain"
-                    poster={slide.thumbnail_src || undefined}
-                    preload="auto"
-                    playsInline
-                />
-            ) : (
-                <img
-                    src={slide.src}
-                    alt={slide.caption || slide.alt || ''}
-                    className="max-w-full max-h-[80vh] w-full object-contain"
-                />
-            )}
-            {(slide.caption || slide.date) && (
-                <div className="mt-2 text-white text-center text-sm">
-                    {slide.caption && <p>{slide.caption}</p>}
-                    {slide.date && <p className="text-gray-400">{slide.date}</p>}
-                </div>
-            )}
-        </div>
-    );
 
     return (
         <div
-            className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 overflow-hidden"
+            className="fixed inset-0 z-50 bg-black flex flex-col"
             role="dialog"
             aria-modal="true"
             aria-label="Media viewer"
-            onKeyDown={onKeyDown}
             tabIndex={0}
         >
             <button
                 type="button"
                 onClick={onClose}
-                className="absolute top-4 right-4 text-white hover:text-gray-300 p-2 z-10"
+                className="absolute top-4 right-4 text-white/80 hover:text-white p-2 z-20"
                 aria-label="Close"
                 ref={closeRef}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="currentColor" viewBox="0 0 16 16">
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
                 </svg>
             </button>
-            {hasPrev && (
+
+            {canSwipe && (
                 <button
                     type="button"
                     onClick={onPrev}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 p-2 z-10"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white p-2 z-20 hidden md:block"
                     aria-label="Previous"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="currentColor" viewBox="0 0 16 16">
                         <path d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z" />
                     </svg>
                 </button>
             )}
-            {hasNext && (
+            {canSwipe && (
                 <button
                     type="button"
                     onClick={onNext}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 p-2 z-10"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/60 hover:text-white p-2 z-20 hidden md:block"
                     aria-label="Next"
                 >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="currentColor" viewBox="0 0 16 16">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" fill="currentColor" viewBox="0 0 16 16">
                         <path d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z" />
                     </svg>
                 </button>
             )}
 
             <div
-                ref={viewportRef}
-                className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden touch-none"
+                className="w-screen h-full overflow-hidden"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
-                style={{ touchAction: 'pan-y' }}
             >
                 <div
-                    className="flex h-full w-full"
-                    style={{
-                        width: '300%',
-                        transform: `translateX(calc(-33.3333% + ${dragOffset}px))`,
-                        transition: isAnimating ? 'transform 0.25s ease-out' : 'none',
-                    }}
+                    ref={trackRef}
+                    className="flex h-full"
+                    style={{ width: '300vw', transform: 'translateX(-100vw)', willChange: 'transform' }}
                     onTransitionEnd={handleTransitionEnd}
                 >
-                    {renderSlide(prevItem, `prev-${prevItem.id}`)}
-                    {renderSlide(item, `current-${item.id}`)}
-                    {renderSlide(nextItem, `next-${nextItem.id}`)}
+                    <LightboxSlide item={prevItem} />
+                    <LightboxSlide item={item} />
+                    <LightboxSlide item={nextItem} />
                 </div>
             </div>
+
+            {(item.caption || item.date) && (
+                <div className="absolute bottom-6 left-0 right-0 text-center text-white text-sm z-20 pointer-events-none">
+                    {item.caption && <p>{item.caption}</p>}
+                    {item.date && <p className="text-gray-400">{item.date}</p>}
+                </div>
+            )}
         </div>
     );
 }
