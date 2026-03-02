@@ -72,6 +72,7 @@ export default function Nav() {
                 >
                     <div className="w-full">
                         <NavLink href="/support-us" onClick={() => setIsOpen(false)}>Support Us</NavLink>
+                        <NavLink href="/gallery" onClick={() => setIsOpen(false)}>Gallery</NavLink>
                         <NavLink href="/sets" onClick={() => setIsOpen(false)}>Sets</NavLink>
                         <Link
                             href="/music"
@@ -86,6 +87,9 @@ export default function Nav() {
                 <ul className="hidden md:flex space-x-4">
                     <li>
                         <Link href="/support-us" className={`focus-ring rounded px-1 ${pathname === '/support-us' ? 'underline underline-offset-2' : ''}`} aria-current={pathname === '/support-us' ? 'page' : undefined}>Support Us</Link>
+                    </li>
+                    <li>
+                        <Link href="/gallery" className={`focus-ring rounded px-1 ${pathname === '/gallery' ? 'underline underline-offset-2' : ''}`} aria-current={pathname === '/gallery' ? 'page' : undefined}>Gallery</Link>
                     </li>
                     <li>
                         <Link href="/sets" className={`focus-ring rounded px-1 ${pathname === '/sets' ? 'underline underline-offset-2' : ''}`} aria-current={pathname === '/sets' ? 'page' : undefined}>Sets</Link>
