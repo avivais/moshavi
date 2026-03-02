@@ -49,7 +49,8 @@ The app is configured to run on an EC2 instance with PM2.
   # or to restart after updates:
   pm2 restart moshavi
   ```
-- **Database:** Run the setup script once to create tables: `npx ts-node db/setup.ts` (or equivalent from the project root).
+- **Database:** Run the setup script once to create tables and migrate existing carousel images into the gallery: `npx ts-node db/setup.ts` (or equivalent from the project root). This creates all tables and, if `carousel_images` has data and `gallery_media` is empty, copies rows so the home carousel keeps working.
+- **Gallery (admin):** Uploads go to `public/media/gallery/` and thumbnails to `public/media/gallery/thumbs/`. Ensure these directories exist on the server (or create them). Video poster extraction requires **ffmpeg** installed on the server.
 - **YouTube sync (admin):** The admin "YouTube playlist sync" feature requires **yt-dlp** installed on the server (e.g. `sudo apt update && sudo apt install -y yt-dlp`, or install from [yt-dlp releases](https://github.com/yt-dlp/yt-dlp/releases)). Without it, "Fetch preview" will fail with an error.
 
 ## Environment variables
