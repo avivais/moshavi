@@ -62,7 +62,7 @@ SSH_USER="ubuntu"
 APP_PATH="/var/www/moshavi"
 
 echo "Deploying on server..."
-ssh -i "$SSH_KEY" "$SSH_USER@$SSH_HOST" "cd $APP_PATH && git stash push -m 'pre-deploy' -- package.json package-lock.json 2>/dev/null; git pull && npm ci && npm run build && mkdir -p public/media/gallery public/media/gallery/thumbs && (npx ts-node db/setup.ts || true) && pm2 restart moshavi"
+ssh -i "$SSH_KEY" "$SSH_USER@$SSH_HOST" "cd $APP_PATH && git stash push -m 'pre-deploy' -- package.json package-lock.json 2>/dev/null; git pull && npm ci && npm run build && mkdir -p public/media/gallery public/media/gallery/thumbs && (npm run db:setup 2>/dev/null || true) && pm2 restart moshavi"
 
 # --- Cloudflare purge (optional) ---
 if [ -n "${CLOUDFLARE_ZONE_ID:-}" ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then

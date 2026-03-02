@@ -4,7 +4,7 @@
  * Does not drop carousel_images; carousel API will read from gallery_media after this run.
  */
 
-import db from '../db';
+import db from '../database';
 
 function run() {
     const hasGalleryMedia = db

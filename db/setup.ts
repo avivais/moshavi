@@ -1,4 +1,4 @@
-import db from '../db';
+import db from '../database';
 
 if (require.main === module) {
     try {

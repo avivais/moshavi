@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import db from '../../../db'
+import db from '../../../database'
 import { parseBody, adminPostSchema, adminPutSchema, adminDeleteSchema } from '../../../lib/api-schemas'
 
 export async function GET(request: Request) {

@@ -4,7 +4,7 @@ import path from 'path';
 import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
-import db from '../../../../../db';
+import db from '../../../../../database';
 
 const BEARER = `Bearer ${process.env.ADMIN_PASSWORD}`;
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB

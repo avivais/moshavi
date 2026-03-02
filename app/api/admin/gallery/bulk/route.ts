@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import db from '../../../../../db';
+import db from '../../../../../database';
 import { parseBody, galleryBulkSchema } from '../../../../../lib/api-schemas';
 
 const BEARER = `Bearer ${process.env.ADMIN_PASSWORD}`;
