@@ -89,10 +89,16 @@ export default function HomeClient() {
                 </div>
             </section>
 
-            <div className="flex flex-col md:flex-row justify-center space-y-4 md:space-y-0 md:space-x-4 px-6">
+            <div className="flex flex-col md:flex-row justify-center gap-4 px-6">
+                <a
+                    href="/gallery"
+                    className="bg-gray-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-500 transition text-center"
+                >
+                    Gallery
+                </a>
                 <a
                     href="/support-us"
-                    className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition"
+                    className="bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition text-center"
                 >
                     Support Us
                 </a>
