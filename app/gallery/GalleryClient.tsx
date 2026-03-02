@@ -169,7 +169,7 @@ export default function GalleryClient() {
                 <div className="space-y-8">
                     {dateGroups.map(([date, groupItems]) => (
                         <section key={date}>
-                            <h2 className="text-xl font-poiret-one mb-3">{date}</h2>
+                            {date !== 'No date' && <h2 className="text-xl font-poiret-one mb-3">{date}</h2>}
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                 {groupItems.map((item, i) => {
                                     const flatIndex = flatItems.findIndex((x) => x.id === item.id);
