@@ -249,6 +249,9 @@ function Lightbox({
     const nextItem = currentIndex < items.length - 1 ? items[currentIndex + 1] : null;
     const [mounted, setMounted] = useState(false);
     const closeRef = useRef<HTMLButtonElement>(null);
+    const touchStartX = useRef<number | null>(null);
+    const SWIPE_THRESHOLD = 50;
+
     useEffect(() => {
         setMounted(true);
         closeRef.current?.focus();
@@ -261,6 +264,20 @@ function Lightbox({
         return () => window.removeEventListener('keydown', h);
     }, [onClose, onPrev, onNext]);
 
+    const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        touchStartX.current = e.touches[0].clientX;
+    }, []);
+
+    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+        if (touchStartX.current == null) return;
+        const endX = e.changedTouches[0].clientX;
+        const delta = touchStartX.current - endX;
+        touchStartX.current = null;
+        if (Math.abs(delta) < SWIPE_THRESHOLD) return;
+        if (delta > 0 && hasNext) onNext();
+        if (delta < 0 && hasPrev) onPrev();
+    }, [hasPrev, hasNext, onPrev, onNext]);
+
     if (!mounted) return null;
     if (!item) return null;
 
@@ -271,6 +288,8 @@ function Lightbox({
             aria-modal="true"
             aria-label="Media viewer"
             onKeyDown={onKeyDown}
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
             tabIndex={0}
         >
             {/* Preload adjacent images for instant navigation */}
