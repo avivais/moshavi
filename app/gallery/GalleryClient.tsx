@@ -245,12 +245,15 @@ function Lightbox({
     onKeyDown: (e: React.KeyboardEvent) => void;
 }) {
     const item = items[currentIndex];
-    const prevItem = currentIndex > 0 ? items[currentIndex - 1] : null;
-    const nextItem = currentIndex < items.length - 1 ? items[currentIndex + 1] : null;
     const [mounted, setMounted] = useState(false);
     const closeRef = useRef<HTMLButtonElement>(null);
+    const viewportRef = useRef<HTMLDivElement>(null);
+    const [dragOffset, setDragOffset] = useState(0);
+    const [isAnimating, setIsAnimating] = useState(false);
+    const pendingNavigate = useRef<'next' | 'prev' | null>(null);
     const touchStartX = useRef<number | null>(null);
     const SWIPE_THRESHOLD = 50;
+    const n = items.length;
 
     useEffect(() => {
         setMounted(true);
@@ -265,40 +268,66 @@ function Lightbox({
     }, [onClose, onPrev, onNext]);
 
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
+        if (n <= 1) return;
         touchStartX.current = e.touches[0].clientX;
-    }, []);
+        setIsAnimating(false);
+    }, [n]);
 
-    const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        if (touchStartX.current == null || n <= 1) return;
+        const x = e.touches[0].clientX;
+        let delta = touchStartX.current - x;
+        const max = viewportRef.current?.clientWidth ?? 300;
+        const limit = max * 0.6;
+        delta = Math.max(-limit, Math.min(limit, delta));
+        setDragOffset(delta);
+        e.preventDefault();
+    }, [n]);
+
+    const handleTouchEnd = useCallback(() => {
         if (touchStartX.current == null) return;
-        const endX = e.changedTouches[0].clientX;
-        const delta = touchStartX.current - endX;
         touchStartX.current = null;
-        if (Math.abs(delta) < SWIPE_THRESHOLD) return;
-        if (delta > 0 && hasNext) onNext();
-        if (delta < 0 && hasPrev) onPrev();
-    }, [hasPrev, hasNext, onPrev, onNext]);
+        const width = viewportRef.current?.clientWidth ?? 300;
+        if (dragOffset > SWIPE_THRESHOLD && hasNext) {
+            pendingNavigate.current = 'next';
+            setIsAnimating(true);
+            setDragOffset(width);
+        } else if (dragOffset < -SWIPE_THRESHOLD && hasPrev) {
+            pendingNavigate.current = 'prev';
+            setIsAnimating(true);
+            setDragOffset(-width);
+        } else {
+            pendingNavigate.current = null;
+            setIsAnimating(true);
+            setDragOffset(0);
+        }
+    }, [dragOffset, hasPrev, hasNext]);
+
+    const handleTransitionEnd = useCallback(() => {
+        const pending = pendingNavigate.current;
+        pendingNavigate.current = null;
+        setDragOffset(0);
+        setIsAnimating(false);
+        if (pending === 'next') onNext();
+        if (pending === 'prev') onPrev();
+    }, [onNext, onPrev]);
 
     if (!mounted) return null;
     if (!item) return null;
 
+    const slidePercent = n > 0 ? 100 / n : 100;
+    const baseTranslate = -currentIndex * slidePercent;
+    const translateX = `calc(${baseTranslate}% + ${dragOffset}px)`;
+
     return (
         <div
-            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center p-4 overflow-hidden"
             role="dialog"
             aria-modal="true"
             aria-label="Media viewer"
             onKeyDown={onKeyDown}
-            onTouchStart={handleTouchStart}
-            onTouchEnd={handleTouchEnd}
             tabIndex={0}
         >
-            {/* Preload adjacent images for instant navigation */}
-            {prevItem && prevItem.type === 'photo' && (
-                <img src={prevItem.src} alt="" className="hidden" fetchPriority="high" />
-            )}
-            {nextItem && nextItem.type === 'photo' && (
-                <img src={nextItem.src} alt="" className="hidden" fetchPriority="high" />
-            )}
             <button
                 type="button"
                 onClick={onClose}
@@ -334,28 +363,55 @@ function Lightbox({
                     </svg>
                 </button>
             )}
-            <div className="max-w-full max-h-full flex flex-col items-center">
-                {item.type === 'video' ? (
-                    <video
-                        src={item.src}
-                        controls
-                        className="max-w-full max-h-[80vh]"
-                        poster={item.thumbnail_src || undefined}
-                        preload="auto"
-                    />
-                ) : (
-                    <img
-                        src={item.src}
-                        alt={item.caption || item.alt || ''}
-                        className="max-w-full max-h-[80vh] object-contain"
-                    />
-                )}
-                {(item.caption || item.date) && (
-                    <div className="mt-2 text-white text-center text-sm">
-                        {item.caption && <p>{item.caption}</p>}
-                        {item.date && <p className="text-gray-400">{item.date}</p>}
-                    </div>
-                )}
+
+            <div
+                ref={viewportRef}
+                className="relative w-full flex-1 flex items-center justify-center min-h-0 overflow-hidden touch-none"
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                style={{ touchAction: 'pan-y' }}
+            >
+                <div
+                    className="flex h-full w-full"
+                    style={{
+                        width: `${n * 100}%`,
+                        transform: `translateX(${translateX})`,
+                        transition: isAnimating ? 'transform 0.25s ease-out' : 'none',
+                    }}
+                    onTransitionEnd={handleTransitionEnd}
+                >
+                    {items.map((slide) => (
+                        <div
+                            key={slide.id}
+                            className="flex-shrink-0 flex flex-col items-center justify-center h-full px-2"
+                            style={{ width: `${100 / n}%` }}
+                        >
+                            {slide.type === 'video' ? (
+                                <video
+                                    src={slide.src}
+                                    controls
+                                    className="max-w-full max-h-[80vh] w-full object-contain"
+                                    poster={slide.thumbnail_src || undefined}
+                                    preload="auto"
+                                    playsInline
+                                />
+                            ) : (
+                                <img
+                                    src={slide.src}
+                                    alt={slide.caption || slide.alt || ''}
+                                    className="max-w-full max-h-[80vh] w-full object-contain"
+                                />
+                            )}
+                            {(slide.caption || slide.date) && (
+                                <div className="mt-2 text-white text-center text-sm">
+                                    {slide.caption && <p>{slide.caption}</p>}
+                                    {slide.date && <p className="text-gray-400">{slide.date}</p>}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );
