@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 
 const STORAGE_KEY = 'galleryViewMode';
-type ViewMode = 'grid' | 'timeline' | 'albums';
+type ViewMode = 'grid' | 'timeline';
 
 function GalleryCell({ thumb, alt, ratio, onClick }: { thumb: string; alt: string; ratio: number; onClick: () => void }) {
     const [loaded, setLoaded] = useState(false);
@@ -47,11 +47,13 @@ export default function GalleryClient() {
     const [items, setItems] = useState<GalleryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<ViewMode>(() => {
-        if (typeof window === 'undefined') return 'grid';
-        return (localStorage.getItem(STORAGE_KEY) as ViewMode) || 'grid';
-    });
+    const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+    useEffect(() => {
+        const saved = localStorage.getItem(STORAGE_KEY) as ViewMode | null;
+        if (saved === 'grid' || saved === 'timeline') setViewMode(saved);
+    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -98,14 +100,6 @@ export default function GalleryClient() {
     }, {});
     const dateGroups = Object.entries(byDate).sort(([a], [b]) => (a === 'No date' ? 1 : b === 'No date' ? -1 : 0));
 
-    const byAlbum = items.reduce<Record<string, GalleryItem[]>>((acc, item) => {
-        const key = item.event_tag?.trim() || 'General';
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(item);
-        return acc;
-    }, {});
-    const albumGroups = Object.entries(byAlbum);
-
     const aspectRatio = (item: GalleryItem) => {
         if (item.width && item.height && item.height > 0) return item.width / item.height;
         return 16 / 9;
@@ -126,7 +120,7 @@ export default function GalleryClient() {
             <h1 className="text-3xl font-poiret-one text-center mb-6">Gallery</h1>
 
             <div className="flex flex-wrap justify-center gap-2 mb-6" role="tablist" aria-label="Gallery view">
-                {(['grid', 'timeline', 'albums'] as const).map((mode) => (
+                {(['grid', 'timeline'] as const).map((mode) => (
                     <button
                         key={mode}
                         type="button"
@@ -135,7 +129,7 @@ export default function GalleryClient() {
                         className={`px-4 py-2 rounded-lg font-medium capitalize transition ${viewMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
                         onClick={() => setViewMode(mode)}
                     >
-                        {mode === 'grid' ? 'Grid' : mode === 'timeline' ? 'Timeline' : 'Albums'}
+                        {mode === 'grid' ? 'Grid' : 'Timeline'}
                     </button>
                 ))}
             </div>
@@ -170,26 +164,6 @@ export default function GalleryClient() {
                     {dateGroups.map(([date, groupItems]) => (
                         <section key={date}>
                             {date !== 'No date' && <h2 className="text-xl font-poiret-one mb-3">{date}</h2>}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                {groupItems.map((item, i) => {
-                                    const flatIndex = flatItems.findIndex((x) => x.id === item.id);
-                                    return (
-                                        <div key={item.id} className="min-w-0">
-                                            {renderCell(item, i, flatIndex >= 0 ? flatIndex : 0)}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </section>
-                    ))}
-                </div>
-            )}
-
-            {!loading && !error && items.length > 0 && viewMode === 'albums' && (
-                <div className="space-y-8">
-                    {albumGroups.map(([albumName, groupItems]) => (
-                        <section key={albumName}>
-                            <h2 className="text-xl font-poiret-one mb-3">{albumName}</h2>
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
                                 {groupItems.map((item, i) => {
                                     const flatIndex = flatItems.findIndex((x) => x.id === item.id);
@@ -281,7 +255,7 @@ function Lightbox({
         };
     }, [onClose, onPrev, onNext]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (trackRef.current) {
             trackRef.current.style.transition = 'none';
             trackRef.current.style.transform = 'translateX(-100vw)';
@@ -326,12 +300,10 @@ function Lightbox({
     }, []);
 
     const handleTransitionEnd = useCallback(() => {
-        if (!locked.current || !trackRef.current) return;
+        if (!locked.current) return;
         const dir = swipeDir.current;
         swipeDir.current = null;
         locked.current = false;
-        trackRef.current.style.transition = 'none';
-        trackRef.current.style.transform = 'translateX(-100vw)';
         if (dir === 'prev') onPrev();
         if (dir === 'next') onNext();
     }, [onPrev, onNext]);
