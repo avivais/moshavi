@@ -234,7 +234,7 @@ function Lightbox({
     const canSwipe = items.length > 1;
 
     const trackRef = useRef<HTMLDivElement>(null);
-    const overlayRef = useRef<HTMLDivElement>(null);
+    const bgRef = useRef<HTMLDivElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
     const touchStartX = useRef(0);
     const touchStartY = useRef(0);
@@ -242,7 +242,7 @@ function Lightbox({
     const locked = useRef(false);
     const swipeDir = useRef<'prev' | 'next' | null>(null);
     const axis = useRef<'x' | 'y' | null>(null);
-    const dismissing = useRef(false);
+    const verticalDy = useRef(0);
 
     useEffect(() => {
         closeRef.current?.focus();
@@ -270,6 +270,7 @@ function Lightbox({
         if (locked.current) return;
         dragging.current = true;
         axis.current = null;
+        verticalDy.current = 0;
         touchStartX.current = e.touches[0].clientX;
         touchStartY.current = e.touches[0].clientY;
         if (trackRef.current) {
@@ -287,10 +288,15 @@ function Lightbox({
             axis.current = Math.abs(dy) > Math.abs(dx) ? 'y' : 'x';
         }
 
-        if (axis.current === 'y' && overlayRef.current) {
-            overlayRef.current.style.transition = 'none';
-            overlayRef.current.style.transform = `translateY(${dy}px)`;
-            overlayRef.current.style.opacity = String(Math.max(0.2, 1 - Math.abs(dy) / 400));
+        if (axis.current === 'y') {
+            verticalDy.current = dy;
+            if (trackRef.current) {
+                trackRef.current.style.transition = 'none';
+                trackRef.current.style.transform = `translateX(-100vw) translateY(${dy}px)`;
+            }
+            if (bgRef.current) {
+                bgRef.current.style.opacity = String(Math.max(0, 1 - Math.abs(dy) / 300));
+            }
         } else if (axis.current === 'x' && canSwipe && trackRef.current) {
             trackRef.current.style.transform = `translateX(calc(-100vw + ${dx}px))`;
         }
@@ -300,22 +306,23 @@ function Lightbox({
         if (!dragging.current) return;
         dragging.current = false;
         const dx = e.changedTouches[0].clientX - touchStartX.current;
-        const dy = e.changedTouches[0].clientY - touchStartY.current;
+        const dy = verticalDy.current;
 
-        if (axis.current === 'y' && overlayRef.current) {
+        if (axis.current === 'y') {
+            axis.current = null;
             const dismissThreshold = window.innerHeight * 0.15;
             if (Math.abs(dy) > dismissThreshold) {
-                dismissing.current = true;
-                const direction = dy > 0 ? '100vh' : '-100vh';
-                overlayRef.current.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
-                overlayRef.current.style.transform = `translateY(${direction})`;
-                overlayRef.current.style.opacity = '0';
-            } else {
-                overlayRef.current.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
-                overlayRef.current.style.transform = 'translateY(0)';
-                overlayRef.current.style.opacity = '1';
+                onClose();
+                return;
             }
-            axis.current = null;
+            if (trackRef.current) {
+                trackRef.current.style.transition = 'transform 0.2s ease-out';
+                trackRef.current.style.transform = 'translateX(-100vw) translateY(0)';
+            }
+            if (bgRef.current) {
+                bgRef.current.style.transition = 'opacity 0.2s ease-out';
+                bgRef.current.style.opacity = '1';
+            }
             return;
         }
 
@@ -336,7 +343,7 @@ function Lightbox({
         } else {
             track.style.transform = 'translateX(-100vw)';
         }
-    }, [canSwipe]);
+    }, [canSwipe, onClose]);
 
     const handleTransitionEnd = useCallback(() => {
         if (!locked.current) return;
@@ -347,39 +354,29 @@ function Lightbox({
         if (dir === 'next') onNext();
     }, [onPrev, onNext]);
 
-    const handleOverlayTransitionEnd = useCallback(() => {
-        if (dismissing.current) {
-            dismissing.current = false;
-            onClose();
-        }
-    }, [onClose]);
-
     if (!item) return null;
 
     return (
         <div
-            className="fixed inset-0 z-50 bg-black"
+            className="fixed inset-0 z-[200]"
             role="dialog"
             aria-modal="true"
             aria-label="Media viewer"
             tabIndex={0}
         >
-            <div
-                ref={overlayRef}
-                className="w-full h-full flex flex-col"
-                onTransitionEnd={handleOverlayTransitionEnd}
+            <div ref={bgRef} className="absolute inset-0 bg-black" />
+
+            <button
+                type="button"
+                onClick={onClose}
+                className="absolute top-4 right-4 bg-black/50 rounded-full text-white p-2 z-20"
+                aria-label="Close"
+                ref={closeRef}
             >
-                <button
-                    type="button"
-                    onClick={onClose}
-                    className="absolute top-4 right-4 bg-black/50 rounded-full text-white p-2 z-20"
-                    aria-label="Close"
-                    ref={closeRef}
-                >
-                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
-                    </svg>
-                </button>
+                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
+                </svg>
+            </button>
 
             {canSwipe && (
                 <button
@@ -407,7 +404,7 @@ function Lightbox({
             )}
 
             <div
-                className="w-screen h-full overflow-hidden"
+                className="relative w-screen h-full overflow-hidden"
                 onTouchStart={handleTouchStart}
                 onTouchMove={handleTouchMove}
                 onTouchEnd={handleTouchEnd}
@@ -426,11 +423,10 @@ function Lightbox({
 
             {(item.caption || item.date) && (
                 <div className="absolute bottom-6 left-0 right-0 text-center text-white text-sm z-20 pointer-events-none">
-                    {item.caption && <p>{item.caption}</p>}
+                    {item.caption && <p className="bg-black/40 inline-block px-3 py-1 rounded">{item.caption}</p>}
                     {item.date && <p className="text-gray-400">{item.date}</p>}
                 </div>
             )}
-            </div>
         </div>
     );
 }
