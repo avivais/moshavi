@@ -234,11 +234,15 @@ function Lightbox({
     const canSwipe = items.length > 1;
 
     const trackRef = useRef<HTMLDivElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
     const closeRef = useRef<HTMLButtonElement>(null);
     const touchStartX = useRef(0);
+    const touchStartY = useRef(0);
     const dragging = useRef(false);
     const locked = useRef(false);
     const swipeDir = useRef<'prev' | 'next' | null>(null);
+    const axis = useRef<'x' | 'y' | null>(null);
+    const dismissing = useRef(false);
 
     useEffect(() => {
         closeRef.current?.focus();
@@ -263,41 +267,76 @@ function Lightbox({
     }, [currentIndex]);
 
     const handleTouchStart = useCallback((e: React.TouchEvent) => {
-        if (!canSwipe || locked.current) return;
+        if (locked.current) return;
         dragging.current = true;
+        axis.current = null;
         touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
         if (trackRef.current) {
             trackRef.current.style.transition = 'none';
         }
-    }, [canSwipe]);
-
-    const handleTouchMove = useCallback((e: React.TouchEvent) => {
-        if (!dragging.current || !trackRef.current) return;
-        const dx = e.touches[0].clientX - touchStartX.current;
-        trackRef.current.style.transform = `translateX(calc(-100vw + ${dx}px))`;
     }, []);
 
+    const handleTouchMove = useCallback((e: React.TouchEvent) => {
+        if (!dragging.current) return;
+        const dx = e.touches[0].clientX - touchStartX.current;
+        const dy = e.touches[0].clientY - touchStartY.current;
+
+        if (!axis.current) {
+            if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return;
+            axis.current = Math.abs(dy) > Math.abs(dx) ? 'y' : 'x';
+        }
+
+        if (axis.current === 'y' && overlayRef.current) {
+            overlayRef.current.style.transition = 'none';
+            overlayRef.current.style.transform = `translateY(${dy}px)`;
+            overlayRef.current.style.opacity = String(Math.max(0.2, 1 - Math.abs(dy) / 400));
+        } else if (axis.current === 'x' && canSwipe && trackRef.current) {
+            trackRef.current.style.transform = `translateX(calc(-100vw + ${dx}px))`;
+        }
+    }, [canSwipe]);
+
     const handleTouchEnd = useCallback((e: React.TouchEvent) => {
-        if (!dragging.current || !trackRef.current) return;
+        if (!dragging.current) return;
         dragging.current = false;
         const dx = e.changedTouches[0].clientX - touchStartX.current;
+        const dy = e.changedTouches[0].clientY - touchStartY.current;
+
+        if (axis.current === 'y' && overlayRef.current) {
+            const dismissThreshold = window.innerHeight * 0.15;
+            if (Math.abs(dy) > dismissThreshold) {
+                dismissing.current = true;
+                const direction = dy > 0 ? '100vh' : '-100vh';
+                overlayRef.current.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+                overlayRef.current.style.transform = `translateY(${direction})`;
+                overlayRef.current.style.opacity = '0';
+            } else {
+                overlayRef.current.style.transition = 'transform 0.2s ease-out, opacity 0.2s ease-out';
+                overlayRef.current.style.transform = 'translateY(0)';
+                overlayRef.current.style.opacity = '1';
+            }
+            axis.current = null;
+            return;
+        }
+
+        axis.current = null;
+        if (!trackRef.current) return;
         const threshold = window.innerWidth * 0.2;
         const track = trackRef.current;
-
         track.style.transition = 'transform 0.25s ease-out';
 
-        if (dx > threshold) {
+        if (dx > threshold && canSwipe) {
             locked.current = true;
             swipeDir.current = 'prev';
             track.style.transform = 'translateX(0vw)';
-        } else if (dx < -threshold) {
+        } else if (dx < -threshold && canSwipe) {
             locked.current = true;
             swipeDir.current = 'next';
             track.style.transform = 'translateX(-200vw)';
         } else {
             track.style.transform = 'translateX(-100vw)';
         }
-    }, []);
+    }, [canSwipe]);
 
     const handleTransitionEnd = useCallback(() => {
         if (!locked.current) return;
@@ -308,27 +347,39 @@ function Lightbox({
         if (dir === 'next') onNext();
     }, [onPrev, onNext]);
 
+    const handleOverlayTransitionEnd = useCallback(() => {
+        if (dismissing.current) {
+            dismissing.current = false;
+            onClose();
+        }
+    }, [onClose]);
+
     if (!item) return null;
 
     return (
         <div
-            className="fixed inset-0 z-50 bg-black flex flex-col"
+            className="fixed inset-0 z-50 bg-black"
             role="dialog"
             aria-modal="true"
             aria-label="Media viewer"
             tabIndex={0}
         >
-            <button
-                type="button"
-                onClick={onClose}
-                className="absolute top-4 right-4 text-white/80 hover:text-white p-2 z-20"
-                aria-label="Close"
-                ref={closeRef}
+            <div
+                ref={overlayRef}
+                className="w-full h-full flex flex-col"
+                onTransitionEnd={handleOverlayTransitionEnd}
             >
-                <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
-                    <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
-                </svg>
-            </button>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="absolute top-4 right-4 bg-black/50 rounded-full text-white p-2 z-20"
+                    aria-label="Close"
+                    ref={closeRef}
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8 2.146 2.854Z" />
+                    </svg>
+                </button>
 
             {canSwipe && (
                 <button
@@ -379,6 +430,7 @@ function Lightbox({
                     {item.date && <p className="text-gray-400">{item.date}</p>}
                 </div>
             )}
+            </div>
         </div>
     );
 }
