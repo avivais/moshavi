@@ -1,9 +1,116 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
+import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useAdminAuth } from '../hooks/useAdminAuth'
 import type { GalleryMedia } from '../types'
 import { formatFileSize } from '../../../lib/format'
+
+type SortOption = 'manual' | 'created_at_desc' | 'created_at_asc' | 'taken_at_desc' | 'taken_at_asc' | 'file_size_desc' | 'file_size_asc' | 'caption_asc' | 'caption_desc' | 'alt_asc' | 'alt_desc' | 'event_tag_asc' | 'event_tag_desc' | 'id_desc' | 'id_asc'
+
+const SORT_OPTIONS: { value: SortOption; label: string }[] = [
+    { value: 'manual', label: 'Manual (gallery order)' },
+    { value: 'created_at_desc', label: 'Upload date (newest)' },
+    { value: 'created_at_asc', label: 'Upload date (oldest)' },
+    { value: 'taken_at_desc', label: 'Taken at (newest)' },
+    { value: 'taken_at_asc', label: 'Taken at (oldest)' },
+    { value: 'file_size_desc', label: 'File size (largest)' },
+    { value: 'file_size_asc', label: 'File size (smallest)' },
+    { value: 'caption_asc', label: 'Caption A-Z' },
+    { value: 'caption_desc', label: 'Caption Z-A' },
+    { value: 'alt_asc', label: 'Alt A-Z' },
+    { value: 'alt_desc', label: 'Alt Z-A' },
+    { value: 'event_tag_asc', label: 'Event tag A-Z' },
+    { value: 'event_tag_desc', label: 'Event tag Z-A' },
+    { value: 'id_desc', label: 'ID (newest)' },
+    { value: 'id_asc', label: 'ID (oldest)' },
+]
+
+function sortItems(items: GalleryMedia[], sort: SortOption): GalleryMedia[] {
+    const sorted = [...items]
+    switch (sort) {
+        case 'manual': return sorted.sort((a, b) => a.gallery_order - b.gallery_order || a.id - b.id)
+        case 'created_at_desc': return sorted.sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
+        case 'created_at_asc': return sorted.sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))
+        case 'taken_at_desc': return sorted.sort((a, b) => { if (!a.taken_at && !b.taken_at) return 0; if (!a.taken_at) return 1; if (!b.taken_at) return -1; return b.taken_at.localeCompare(a.taken_at) })
+        case 'taken_at_asc': return sorted.sort((a, b) => { if (!a.taken_at && !b.taken_at) return 0; if (!a.taken_at) return 1; if (!b.taken_at) return -1; return a.taken_at.localeCompare(b.taken_at) })
+        case 'file_size_desc': return sorted.sort((a, b) => (b.file_size || 0) - (a.file_size || 0))
+        case 'file_size_asc': return sorted.sort((a, b) => (a.file_size || 0) - (b.file_size || 0))
+        case 'caption_asc': return sorted.sort((a, b) => a.caption.localeCompare(b.caption))
+        case 'caption_desc': return sorted.sort((a, b) => b.caption.localeCompare(a.caption))
+        case 'alt_asc': return sorted.sort((a, b) => a.alt.localeCompare(b.alt))
+        case 'alt_desc': return sorted.sort((a, b) => b.alt.localeCompare(a.alt))
+        case 'event_tag_asc': return sorted.sort((a, b) => (a.event_tag ?? '').localeCompare(b.event_tag ?? ''))
+        case 'event_tag_desc': return sorted.sort((a, b) => (b.event_tag ?? '').localeCompare(a.event_tag ?? ''))
+        case 'id_desc': return sorted.sort((a, b) => b.id - a.id)
+        case 'id_asc': return sorted.sort((a, b) => a.id - b.id)
+        default: return sorted
+    }
+}
+
+function formatDate(iso?: string | null): string {
+    if (!iso) return ''
+    try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) } catch { return iso }
+}
+
+function SortableCard({ item, isSelected, onToggleSelect, onEdit, onHide }: {
+    item: GalleryMedia; isSelected: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
+    const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
+
+    return (
+        <div ref={setNodeRef} style={style} className={`border rounded overflow-hidden ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+            <div className="flex items-center gap-1 p-1 bg-gray-700" {...attributes} {...listeners}>
+                <input type="checkbox" checked={isSelected} onChange={onToggleSelect} onClick={e => e.stopPropagation()} className="rounded" />
+                <span className="text-xs truncate flex-1 cursor-grab">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
+            </div>
+            <div className="aspect-square bg-gray-900 relative">
+                {(item.thumbnail_src || item.src) && <img src={item.thumbnail_src || item.src} alt={item.alt || ''} className="w-full h-full object-cover" />}
+                {item.show_in_carousel ? <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span> : null}
+                {!item.visible && <span className="absolute top-1 left-1 bg-red-600 text-white text-xs px-1 rounded">Hidden</span>}
+            </div>
+            <div className="p-1 text-xs space-y-0.5">
+                <div className="truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
+                {item.created_at && <div className="text-gray-500 truncate" title={item.created_at}>Up: {formatDate(item.created_at)}</div>}
+                {item.taken_at && <div className="text-gray-500 truncate" title={item.taken_at}>At: {formatDate(item.taken_at)}</div>}
+            </div>
+            <div className="p-1 flex flex-wrap gap-1">
+                <button type="button" onClick={onEdit} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
+                <button type="button" onClick={onHide} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
+            </div>
+        </div>
+    )
+}
+
+function PlainCard({ item, isSelected, onToggleSelect, onEdit, onHide }: {
+    item: GalleryMedia; isSelected: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void
+}) {
+    return (
+        <div className={`border rounded overflow-hidden ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+            <label className="flex items-center gap-1 p-1 bg-gray-700">
+                <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="rounded" />
+                <span className="text-xs truncate">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
+            </label>
+            <div className="aspect-square bg-gray-900 relative">
+                {(item.thumbnail_src || item.src) && <img src={item.thumbnail_src || item.src} alt={item.alt || ''} className="w-full h-full object-cover" />}
+                {item.show_in_carousel ? <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span> : null}
+                {!item.visible && <span className="absolute top-1 left-1 bg-red-600 text-white text-xs px-1 rounded">Hidden</span>}
+            </div>
+            <div className="p-1 text-xs space-y-0.5">
+                <div className="truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
+                {item.created_at && <div className="text-gray-500 truncate" title={item.created_at}>Up: {formatDate(item.created_at)}</div>}
+                {item.taken_at && <div className="text-gray-500 truncate" title={item.taken_at}>At: {formatDate(item.taken_at)}</div>}
+            </div>
+            <div className="p-1 flex flex-wrap gap-1">
+                <button type="button" onClick={onEdit} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
+                <button type="button" onClick={onHide} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
+            </div>
+        </div>
+    )
+}
 
 export default function GalleryAdmin() {
     const { authToken, isAuthenticated, message, setMessage } = useAdminAuth()
@@ -14,6 +121,19 @@ export default function GalleryAdmin() {
     const [galleryBulkSelected, setGalleryBulkSelected] = useState<Set<number>>(new Set())
     const [galleryBulkEventTag, setGalleryBulkEventTag] = useState('')
     const [confirmDelete, setConfirmDelete] = useState<{ ids: number[]; totalSize: number } | null>(null)
+    const [sortOption, setSortOption] = useState<SortOption>(() => {
+        if (typeof window !== 'undefined') return (localStorage.getItem('gallery_sort') as SortOption) || 'manual'
+        return 'manual'
+    })
+
+    const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+
+    const sortedList = useMemo(() => sortItems(galleryList, sortOption), [galleryList, sortOption])
+
+    const handleSortChange = (value: SortOption) => {
+        setSortOption(value)
+        localStorage.setItem('gallery_sort', value)
+    }
 
     const refreshGallery = useCallback(() => {
         if (authToken) {
@@ -24,9 +144,7 @@ export default function GalleryAdmin() {
     }, [authToken])
 
     useEffect(() => {
-        if (isAuthenticated && authToken) {
-            refreshGallery()
-        }
+        if (isAuthenticated && authToken) refreshGallery()
     }, [isAuthenticated, authToken, refreshGallery])
 
     const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,9 +153,7 @@ export default function GalleryAdmin() {
         const total = files.length
         setGalleryUploadProgress({ current: 0, total })
         const formData = new FormData()
-        for (let i = 0; i < files.length; i++) {
-            formData.append('file', files[i])
-        }
+        for (let i = 0; i < files.length; i++) formData.append('file', files[i])
         try {
             const xhr = new XMLHttpRequest()
             xhr.open('POST', '/api/admin/gallery/upload')
@@ -49,17 +165,7 @@ export default function GalleryAdmin() {
                 }
             }
             await new Promise<void>((resolve, reject) => {
-                xhr.onload = () => {
-                    if (xhr.status >= 200 && xhr.status < 300) resolve()
-                    else {
-                        try {
-                            const j = JSON.parse(xhr.responseText || '{}')
-                            reject(new Error(j.error || 'Upload failed'))
-                        } catch {
-                            reject(new Error('Upload failed'))
-                        }
-                    }
-                }
+                xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else { try { reject(new Error(JSON.parse(xhr.responseText || '{}').error || 'Upload failed')) } catch { reject(new Error('Upload failed')) } } }
                 xhr.onerror = () => reject(new Error('Network error'))
                 xhr.send(formData)
             })
@@ -77,31 +183,20 @@ export default function GalleryAdmin() {
     const handleGalleryUpdate = async (payload: Partial<GalleryMedia> & { id: number }) => {
         if (!authToken) return
         const res = await fetch('/api/admin/gallery', {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+            method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
             body: JSON.stringify(payload),
         })
         const json = await res.json()
-        if (json.success) {
-            setMessage('Updated')
-            setGalleryEdit(null)
-            refreshGallery()
-        } else {
-            setMessage(json.error || 'Update failed')
-        }
+        if (json.success) { setMessage('Updated'); setGalleryEdit(null); refreshGallery() }
+        else setMessage(json.error || 'Update failed')
     }
 
     const handleGallerySoftDelete = async (id: number) => {
         if (!authToken) return
         const res = await fetch(`/api/admin/gallery?id=${id}`, { method: 'DELETE', headers: { 'Authorization': authToken } })
         const json = await res.json()
-        if (json.success) {
-            setMessage('Hidden')
-            setGalleryEdit(null)
-            refreshGallery()
-        } else {
-            setMessage(json.error || 'Hide failed')
-        }
+        if (json.success) { setMessage('Hidden'); setGalleryEdit(null); refreshGallery() }
+        else setMessage(json.error || 'Hide failed')
     }
 
     const requestHardDelete = (ids: number[]) => {
@@ -116,61 +211,69 @@ export default function GalleryAdmin() {
         if (ids.length === 1) {
             const res = await fetch(`/api/admin/gallery?id=${ids[0]}&hard=1`, { method: 'DELETE', headers: { 'Authorization': authToken } })
             const json = await res.json()
-            if (json.success) { setMessage('Permanently deleted'); setGalleryEdit(null); } else { setMessage(json.error || 'Delete failed') }
+            if (json.success) { setMessage('Permanently deleted'); setGalleryEdit(null) } else setMessage(json.error || 'Delete failed')
         } else {
             const res = await fetch('/api/admin/gallery/bulk', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
                 body: JSON.stringify({ action: 'delete', ids, hard: true }),
             })
             const json = await res.json()
-            if (json.success) { setMessage(`Permanently deleted ${ids.length} items`); } else { setMessage(json.error || 'Bulk delete failed') }
+            if (json.success) setMessage(`Permanently deleted ${ids.length} items`); else setMessage(json.error || 'Bulk delete failed')
         }
         setGalleryBulkSelected(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n })
         refreshGallery()
     }
 
-    const handleGalleryBulk = async (action: 'add_to_carousel' | 'remove_from_carousel' | 'set_event_tag' | 'hide' | 'delete') => {
+    const handleGalleryBulk = async (action: 'add_to_carousel' | 'remove_from_carousel' | 'set_event_tag' | 'hide' | 'show' | 'delete') => {
         if (!authToken || galleryBulkSelected.size === 0) return
         const ids = Array.from(galleryBulkSelected)
         const body: { action: string; ids: number[]; event_tag?: string | null; hard?: boolean } = { action, ids }
         if (action === 'set_event_tag') body.event_tag = galleryBulkEventTag || null
         if (action === 'delete') body.hard = false
         const res = await fetch('/api/admin/gallery/bulk', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
             body: JSON.stringify(body),
         })
         const json = await res.json()
-        if (json.success) {
-            setMessage('Bulk action done')
-            setGalleryBulkSelected(new Set())
-            refreshGallery()
-        } else {
-            setMessage(json.error || 'Bulk action failed')
-        }
+        if (json.success) { setMessage('Bulk action done'); setGalleryBulkSelected(new Set()); refreshGallery() }
+        else setMessage(json.error || 'Bulk action failed')
     }
 
     const toggleGalleryBulk = (id: number) => {
-        setGalleryBulkSelected(prev => {
-            const next = new Set(prev)
-            if (next.has(id)) next.delete(id)
-            else next.add(id)
-            return next
-        })
+        setGalleryBulkSelected(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next })
     }
 
-    if (isAuthenticated === null) {
-        return <div className="p-4 max-w-2xl mx-auto bg-gray-900 text-white rounded-lg">Authenticating...</div>
+    const handleDragEnd = (event: DragEndEvent) => {
+        const { active, over } = event
+        if (!over || active.id === over.id) return
+        const oldIndex = sortedList.findIndex(i => i.id === active.id)
+        const newIndex = sortedList.findIndex(i => i.id === over.id)
+        if (oldIndex === -1 || newIndex === -1) return
+        const reordered = [...sortedList]
+        const [moved] = reordered.splice(oldIndex, 1)
+        reordered.splice(newIndex, 0, moved)
+        const updated = reordered.map((item, i) => ({ ...item, gallery_order: i }))
+        setGalleryList(updated)
+        if (authToken) {
+            fetch('/api/admin/gallery/reorder', {
+                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+                body: JSON.stringify({ gallery_order: updated.map(i => i.id) }),
+            }).catch(() => setMessage('Reorder failed'))
+        }
     }
 
-    if (!isAuthenticated) {
-        return <div className="p-4 max-w-2xl mx-auto bg-gray-900 text-white rounded-lg">{message}</div>
-    }
+    // Conditional bulk action checks
+    const selectedItems = galleryList.filter(i => galleryBulkSelected.has(i.id))
+    const hasCarouselSelected = selectedItems.some(i => i.show_in_carousel)
+    const hasVisibleSelected = selectedItems.some(i => i.visible)
+    const hasHiddenSelected = selectedItems.some(i => !i.visible)
 
-    const carouselItems = galleryList
-        .filter(item => item.show_in_carousel)
-        .sort((a, b) => a.carousel_order - b.carousel_order)
+    const isSuccessMsg = (m: string) => ['Updated', 'Hidden', 'Permanently deleted', 'Bulk action done', 'Upload successful'].some(s => m.includes(s))
+
+    if (isAuthenticated === null) return <div className="p-4 max-w-2xl mx-auto bg-gray-900 text-white rounded-lg">Authenticating...</div>
+    if (!isAuthenticated) return <div className="p-4 max-w-2xl mx-auto bg-gray-900 text-white rounded-lg">{message}</div>
+
+    const carouselItems = galleryList.filter(item => item.show_in_carousel).sort((a, b) => a.carousel_order - b.carousel_order)
 
     return (
         <div className="p-4 max-w-5xl mx-auto bg-gray-900 text-white rounded-lg">
@@ -178,75 +281,66 @@ export default function GalleryAdmin() {
                 <h1 className="text-2xl font-bold">Gallery Admin</h1>
                 <a href="/admin" className="text-blue-400 hover:text-blue-300 text-sm">&larr; Back to Admin Hub</a>
             </div>
-            {message && <p className={message.includes('successful') || message === 'Updated' || message === 'Deleted' || message === 'Bulk action done' || message === 'Upload successful' ? 'text-green-500 mb-3' : 'text-red-500 mb-3'}>{message}</p>}
+            {message && <p className={isSuccessMsg(message) ? 'text-green-500 mb-3' : 'text-red-500 mb-3'}>{message}</p>}
 
             {/* Upload */}
             <div className="mb-6 p-4 bg-gray-800 rounded-lg">
                 <h2 className="text-xl font-bold mb-2">Upload</h2>
                 <label className="inline-flex items-center justify-center min-h-[48px] min-w-[200px] px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer text-white font-medium touch-manipulation">
-                    <input
-                        type="file"
-                        accept="image/*,video/*"
-                        multiple
-                        className="sr-only"
-                        onChange={handleGalleryUpload}
-                        disabled={!!galleryUploadProgress}
-                    />
-                    {galleryUploadProgress
-                        ? `Uploading ${galleryUploadProgress.current} of ${galleryUploadProgress.total}…`
-                        : 'Add photos / videos'}
+                    <input type="file" accept="image/*,video/*" multiple className="sr-only" onChange={handleGalleryUpload} disabled={!!galleryUploadProgress} />
+                    {galleryUploadProgress ? `Uploading ${galleryUploadProgress.current} of ${galleryUploadProgress.total}…` : 'Add photos / videos'}
                 </label>
                 {galleryUploadProgress && (
                     <div className="mt-2 w-full max-w-xs h-2 bg-gray-700 rounded overflow-hidden">
-                        <div
-                            className="h-full bg-blue-500 transition-all duration-300"
-                            style={{ width: `${(galleryUploadProgress.current / galleryUploadProgress.total) * 100}%` }}
-                        />
+                        <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(galleryUploadProgress.current / galleryUploadProgress.total) * 100}%` }} />
                     </div>
                 )}
             </div>
 
-            {/* Bulk actions */}
+            {/* Sort + Bulk actions toolbar */}
             {galleryList.length > 0 && (
-                <div className="mb-4 flex flex-wrap items-center gap-2">
-                    <span className="text-sm text-gray-400">Bulk:</span>
-                    <button type="button" onClick={() => handleGalleryBulk('add_to_carousel')} disabled={galleryBulkSelected.size === 0} className="bg-green-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Add to carousel</button>
-                    <button type="button" onClick={() => handleGalleryBulk('remove_from_carousel')} disabled={galleryBulkSelected.size === 0} className="bg-gray-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Remove from carousel</button>
-                    <input type="text" placeholder="Event tag" value={galleryBulkEventTag} onChange={e => setGalleryBulkEventTag(e.target.value)} className="p-1.5 bg-gray-700 border border-gray-600 rounded text-sm w-32" />
-                    <button type="button" onClick={() => handleGalleryBulk('set_event_tag')} disabled={galleryBulkSelected.size === 0} className="bg-gray-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Set tag</button>
-                    <button type="button" onClick={() => handleGalleryBulk('hide')} disabled={galleryBulkSelected.size === 0} className="bg-yellow-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Hide</button>
-                    <button type="button" onClick={() => handleGalleryBulk('delete')} disabled={galleryBulkSelected.size === 0} className="bg-red-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Delete</button>
+                <div className="mb-4 space-y-3">
+                    <div className="flex items-center gap-3">
+                        <label className="text-sm text-gray-400">Sort:</label>
+                        <select value={sortOption} onChange={e => handleSortChange(e.target.value as SortOption)} className="p-1.5 bg-gray-700 border border-gray-600 rounded text-sm">
+                            {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                        </select>
+                        <span className="text-sm text-gray-500">{galleryList.length} items</span>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-gray-400">Bulk ({galleryBulkSelected.size}):</span>
+                        <button type="button" onClick={() => handleGalleryBulk('add_to_carousel')} disabled={galleryBulkSelected.size === 0} className="bg-green-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Add to carousel</button>
+                        <button type="button" onClick={() => handleGalleryBulk('remove_from_carousel')} disabled={galleryBulkSelected.size === 0 || !hasCarouselSelected} className="bg-gray-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Remove from carousel</button>
+                        <input type="text" placeholder="Event tag" value={galleryBulkEventTag} onChange={e => setGalleryBulkEventTag(e.target.value)} className="p-1.5 bg-gray-700 border border-gray-600 rounded text-sm w-32" />
+                        <button type="button" onClick={() => handleGalleryBulk('set_event_tag')} disabled={galleryBulkSelected.size === 0} className="bg-gray-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Set tag</button>
+                        <button type="button" onClick={() => handleGalleryBulk('hide')} disabled={galleryBulkSelected.size === 0 || !hasVisibleSelected} className="bg-yellow-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Hide</button>
+                        <button type="button" onClick={() => handleGalleryBulk('show')} disabled={galleryBulkSelected.size === 0 || !hasHiddenSelected} className="bg-green-700 px-3 py-1.5 rounded text-sm disabled:opacity-50">Show</button>
+                        <button type="button" onClick={() => requestHardDelete(Array.from(galleryBulkSelected))} disabled={galleryBulkSelected.size === 0} className="bg-red-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Delete</button>
+                    </div>
                 </div>
             )}
 
             {/* Gallery grid */}
-            {galleryList.length > 0 && (
-                <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
-                    {galleryList.map(item => (
-                        <div
-                            key={item.id}
-                            className={`border rounded overflow-hidden ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${galleryBulkSelected.has(item.id) ? 'ring-2 ring-blue-400' : ''}`}
-                        >
-                            <label className="flex items-center gap-1 p-1 bg-gray-700">
-                                <input type="checkbox" checked={galleryBulkSelected.has(item.id)} onChange={() => toggleGalleryBulk(item.id)} className="rounded" />
-                                <span className="text-xs truncate">#{item.id}</span>
-                            </label>
-                            <div className="aspect-square bg-gray-900 relative">
-                                {(item.thumbnail_src || item.src) && (
-                                    <img src={item.thumbnail_src || item.src} alt={item.alt || ''} className="w-full h-full object-cover" />
-                                )}
-                                {item.show_in_carousel ? (
-                                    <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span>
-                                ) : null}
+            {sortedList.length > 0 && (
+                sortOption === 'manual' ? (
+                    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+                        <SortableContext items={sortedList.map(i => i.id)} strategy={rectSortingStrategy}>
+                            <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
+                                {sortedList.map(item => (
+                                    <SortableCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)}
+                                        onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} />
+                                ))}
                             </div>
-                            <div className="p-1 text-xs truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
-                            <div className="p-1 flex flex-wrap gap-1">
-                                <button type="button" onClick={() => setGalleryEdit(item)} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
-                                <button type="button" onClick={() => handleGallerySoftDelete(item.id)} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                        </SortableContext>
+                    </DndContext>
+                ) : (
+                    <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
+                        {sortedList.map(item => (
+                            <PlainCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)}
+                                onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} />
+                        ))}
+                    </div>
+                )
             )}
 
             {/* Carousel preview */}
@@ -256,44 +350,47 @@ export default function GalleryAdmin() {
                 <div className="flex flex-wrap gap-2">
                     {carouselItems.map(item => (
                         <div key={item.id} className="w-24 border border-gray-600 rounded overflow-hidden">
-                            {(item.thumbnail_src || item.src) && (
-                                <img src={item.thumbnail_src || item.src} alt={item.alt || ''} className="w-full h-20 object-cover" />
-                            )}
+                            {(item.thumbnail_src || item.src) && <img src={item.thumbnail_src || item.src} alt={item.alt || ''} className="w-full h-20 object-cover" />}
                             <div className="p-1 text-xs truncate">#{item.id}</div>
                             <button type="button" onClick={() => setGalleryEdit(item)} className="w-full bg-yellow-600 px-2 py-0.5 text-xs">Edit</button>
                         </div>
                     ))}
-                    {carouselItems.length === 0 && (
-                        <p className="text-gray-500">No carousel items. Add gallery media and turn on &quot;Show in carousel&quot;.</p>
-                    )}
+                    {carouselItems.length === 0 && <p className="text-gray-500">No carousel items. Add gallery media and turn on &quot;Show in carousel&quot;.</p>}
                 </div>
             </div>
 
             {/* Edit modal */}
             {galleryEdit && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setGalleryEdit(null)}>
-                    <div className="bg-gray-800 rounded-lg max-w-lg w-full p-4 shadow-xl" onClick={e => e.stopPropagation()}>
-                        <h3 className="text-lg font-bold mb-3">Edit gallery item</h3>
+                    <div className="bg-gray-800 rounded-lg max-w-lg w-full p-4 shadow-xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold mb-3">Edit gallery item #{galleryEdit.id}</h3>
+                        <div className="text-xs text-gray-400 mb-3 space-y-0.5">
+                            <div>Type: {galleryEdit.type} · Size: {formatFileSize(galleryEdit.file_size || 0)}</div>
+                            {galleryEdit.created_at && <div>Uploaded: {formatDate(galleryEdit.created_at)}</div>}
+                            {galleryEdit.taken_at && <div>Taken at: {formatDate(galleryEdit.taken_at)}</div>}
+                        </div>
                         <form
                             onSubmit={e => {
                                 e.preventDefault()
-                                const form = e.currentTarget
+                                const f = e.currentTarget
                                 handleGalleryUpdate({
                                     id: galleryEdit.id,
-                                    caption: (form.querySelector('[name="caption"]') as HTMLInputElement)?.value ?? '',
-                                    alt: (form.querySelector('[name="alt"]') as HTMLInputElement)?.value ?? '',
-                                    date: (form.querySelector('[name="date"]') as HTMLInputElement)?.value ?? '',
-                                    event_tag: (form.querySelector('[name="event_tag"]') as HTMLInputElement)?.value || null,
-                                    show_in_carousel: (form.querySelector('[name="show_in_carousel"]') as HTMLInputElement)?.checked ? 1 : 0,
-                                    carousel_order: parseInt((form.querySelector('[name="carousel_order"]') as HTMLInputElement)?.value || '0', 10),
-                                    gallery_order: parseInt((form.querySelector('[name="gallery_order"]') as HTMLInputElement)?.value || '0', 10),
+                                    caption: (f.querySelector('[name="caption"]') as HTMLInputElement)?.value ?? '',
+                                    alt: (f.querySelector('[name="alt"]') as HTMLInputElement)?.value ?? '',
+                                    date: (f.querySelector('[name="date"]') as HTMLInputElement)?.value ?? '',
+                                    event_tag: (f.querySelector('[name="event_tag"]') as HTMLInputElement)?.value || null,
+                                    taken_at: (f.querySelector('[name="taken_at"]') as HTMLInputElement)?.value || null,
+                                    show_in_carousel: (f.querySelector('[name="show_in_carousel"]') as HTMLInputElement)?.checked ? 1 : 0,
+                                    carousel_order: parseInt((f.querySelector('[name="carousel_order"]') as HTMLInputElement)?.value || '0', 10),
+                                    gallery_order: parseInt((f.querySelector('[name="gallery_order"]') as HTMLInputElement)?.value || '0', 10),
                                 })
                             }}
                             className="space-y-2"
                         >
                             <div><label className="block text-sm">Caption</label><input name="caption" defaultValue={galleryEdit.caption} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
                             <div><label className="block text-sm">Alt</label><input name="alt" defaultValue={galleryEdit.alt} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
-                            <div><label className="block text-sm">Date</label><input name="date" defaultValue={galleryEdit.date} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
+                            <div><label className="block text-sm">Date (display label)</label><input name="date" defaultValue={galleryEdit.date} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
+                            <div><label className="block text-sm">Taken at</label><input name="taken_at" type="datetime-local" defaultValue={galleryEdit.taken_at?.slice(0, 16) ?? ''} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
                             <div><label className="block text-sm">Event tag</label><input name="event_tag" defaultValue={galleryEdit.event_tag ?? ''} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
                             <label className="flex items-center gap-2"><input name="show_in_carousel" type="checkbox" defaultChecked={!!galleryEdit.show_in_carousel} className="rounded" /><span>Show in carousel</span></label>
                             <div><label className="block text-sm">Carousel order</label><input name="carousel_order" type="number" defaultValue={galleryEdit.carousel_order} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
@@ -301,21 +398,19 @@ export default function GalleryAdmin() {
                             <div className="flex gap-2 pt-2">
                                 <button type="submit" className="bg-blue-600 px-4 py-2 rounded">Save</button>
                                 <button type="button" onClick={() => setGalleryEdit(null)} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
-                                <button type="button" onClick={() => { setGalleryEdit(null); requestHardDelete([galleryEdit.id]); }} className="bg-red-600 px-4 py-2 rounded">Delete permanently</button>
+                                <button type="button" onClick={() => { setGalleryEdit(null); requestHardDelete([galleryEdit.id]) }} className="bg-red-600 px-4 py-2 rounded">Delete permanently</button>
                             </div>
                         </form>
                     </div>
                 </div>
             )}
 
-            {/* Hard delete confirmation modal */}
+            {/* Hard delete confirmation */}
             {confirmDelete && (
                 <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmDelete(null)}>
                     <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl" onClick={e => e.stopPropagation()}>
                         <h3 className="text-lg font-bold mb-3 text-red-400">Permanently delete {confirmDelete.ids.length} item{confirmDelete.ids.length > 1 ? 's' : ''}?</h3>
-                        <p className="text-gray-300 mb-4">
-                            This will free {formatFileSize(confirmDelete.totalSize)}. This action cannot be undone.
-                        </p>
+                        <p className="text-gray-300 mb-4">This will free {formatFileSize(confirmDelete.totalSize)}. This action cannot be undone.</p>
                         <div className="flex gap-3 justify-end">
                             <button type="button" onClick={() => setConfirmDelete(null)} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
                             <button type="button" onClick={executeHardDelete} className="bg-red-600 px-4 py-2 rounded font-medium">Delete permanently</button>
