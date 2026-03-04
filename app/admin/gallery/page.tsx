@@ -129,10 +129,49 @@ export default function GalleryAdmin() {
         if (typeof window !== 'undefined') return (localStorage.getItem('gallery_sort') as SortOption) || 'manual'
         return 'manual'
     })
+    const [filterType, setFilterType] = useState<'all' | 'photo' | 'video'>('all')
+    const [filterSize, setFilterSize] = useState<string>('all')
+    const [filterVisibility, setFilterVisibility] = useState<'all' | 'visible' | 'hidden'>('all')
+    const [filterCarousel, setFilterCarousel] = useState<'all' | 'in' | 'out'>('all')
+    const [filterEventTag, setFilterEventTag] = useState<string>('all')
+    const [filterTakenAt, setFilterTakenAt] = useState<'all' | 'has' | 'none'>('all')
+    const [searchQuery, setSearchQuery] = useState('')
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
-    const sortedList = useMemo(() => sortItems(galleryList, sortOption), [galleryList, sortOption])
+    const filteredList = useMemo(() => {
+        let items = galleryList
+        if (filterType !== 'all') items = items.filter(i => i.type === filterType)
+        if (filterSize !== 'all') {
+            const ranges: Record<string, [number, number]> = { '<500KB': [0, 500 * 1024], '500KB-1MB': [500 * 1024, 1024 * 1024], '1-5MB': [1024 * 1024, 5 * 1024 * 1024], '5-20MB': [5 * 1024 * 1024, 20 * 1024 * 1024], '>20MB': [20 * 1024 * 1024, Infinity] }
+            const range = ranges[filterSize]
+            if (range) items = items.filter(i => (i.file_size || 0) >= range[0] && (i.file_size || 0) < range[1])
+        }
+        if (filterVisibility === 'visible') items = items.filter(i => i.visible)
+        else if (filterVisibility === 'hidden') items = items.filter(i => !i.visible)
+        if (filterCarousel === 'in') items = items.filter(i => i.show_in_carousel)
+        else if (filterCarousel === 'out') items = items.filter(i => !i.show_in_carousel)
+        if (filterEventTag === 'has') items = items.filter(i => i.event_tag)
+        else if (filterEventTag === 'none') items = items.filter(i => !i.event_tag)
+        else if (filterEventTag !== 'all') items = items.filter(i => i.event_tag === filterEventTag)
+        if (filterTakenAt === 'has') items = items.filter(i => i.taken_at)
+        else if (filterTakenAt === 'none') items = items.filter(i => !i.taken_at)
+        if (searchQuery.trim()) {
+            const q = searchQuery.toLowerCase()
+            items = items.filter(i => i.caption.toLowerCase().includes(q) || i.alt.toLowerCase().includes(q) || (i.event_tag ?? '').toLowerCase().includes(q))
+        }
+        return items
+    }, [galleryList, filterType, filterSize, filterVisibility, filterCarousel, filterEventTag, filterTakenAt, searchQuery])
+
+    const sortedList = useMemo(() => sortItems(filteredList, sortOption), [filteredList, sortOption])
+
+    const uniqueEventTags = useMemo(() => {
+        const tags = new Set<string>()
+        galleryList.forEach(i => { if (i.event_tag) tags.add(i.event_tag) })
+        return Array.from(tags).sort()
+    }, [galleryList])
+
+    const activeFilterCount = [filterType !== 'all', filterSize !== 'all', filterVisibility !== 'all', filterCarousel !== 'all', filterEventTag !== 'all', filterTakenAt !== 'all', searchQuery.trim() !== ''].filter(Boolean).length
 
     const handleSortChange = (value: SortOption) => {
         setSortOption(value)
@@ -159,6 +198,10 @@ export default function GalleryAdmin() {
     useEffect(() => {
         if (isAuthenticated && authToken) { refreshGallery(); refreshStorage() }
     }, [isAuthenticated, authToken, refreshGallery, refreshStorage])
+
+    useEffect(() => {
+        setGalleryBulkSelected(new Set())
+    }, [filterType, filterSize, filterVisibility, filterCarousel, filterEventTag, filterTakenAt, searchQuery])
 
     const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
@@ -333,6 +376,41 @@ export default function GalleryAdmin() {
                 </div>
             )}
 
+            {/* Filter bar */}
+            {galleryList.length > 0 && (
+                <div className="mb-4 p-3 bg-gray-800 rounded-lg space-y-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm text-gray-400 font-medium">Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}:</span>
+                        <select value={filterType} onChange={e => setFilterType(e.target.value as typeof filterType)} className="p-1 bg-gray-700 border border-gray-600 rounded text-xs">
+                            <option value="all">All types</option><option value="photo">Images</option><option value="video">Videos</option>
+                        </select>
+                        <select value={filterSize} onChange={e => setFilterSize(e.target.value)} className="p-1 bg-gray-700 border border-gray-600 rounded text-xs">
+                            <option value="all">All sizes</option><option value="<500KB">&lt; 500 KB</option><option value="500KB-1MB">500 KB - 1 MB</option><option value="1-5MB">1 - 5 MB</option><option value="5-20MB">5 - 20 MB</option><option value=">20MB">&gt; 20 MB</option>
+                        </select>
+                        <select value={filterVisibility} onChange={e => setFilterVisibility(e.target.value as typeof filterVisibility)} className="p-1 bg-gray-700 border border-gray-600 rounded text-xs">
+                            <option value="all">All visibility</option><option value="visible">Visible</option><option value="hidden">Hidden</option>
+                        </select>
+                        <select value={filterCarousel} onChange={e => setFilterCarousel(e.target.value as typeof filterCarousel)} className="p-1 bg-gray-700 border border-gray-600 rounded text-xs">
+                            <option value="all">All carousel</option><option value="in">In carousel</option><option value="out">Not in carousel</option>
+                        </select>
+                        <select value={filterEventTag} onChange={e => setFilterEventTag(e.target.value)} className="p-1 bg-gray-700 border border-gray-600 rounded text-xs">
+                            <option value="all">All tags</option><option value="has">Has tag</option><option value="none">No tag</option>
+                            {uniqueEventTags.map(t => <option key={t} value={t}>{t}</option>)}
+                        </select>
+                        <select value={filterTakenAt} onChange={e => setFilterTakenAt(e.target.value as typeof filterTakenAt)} className="p-1 bg-gray-700 border border-gray-600 rounded text-xs">
+                            <option value="all">All dates</option><option value="has">Has taken_at</option><option value="none">No taken_at</option>
+                        </select>
+                        {activeFilterCount > 0 && (
+                            <button type="button" onClick={() => { setFilterType('all'); setFilterSize('all'); setFilterVisibility('all'); setFilterCarousel('all'); setFilterEventTag('all'); setFilterTakenAt('all'); setSearchQuery('') }} className="text-xs text-blue-400 hover:text-blue-300">Clear all</button>
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <input type="text" placeholder="Search caption, alt, tag…" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="flex-1 p-1.5 bg-gray-700 border border-gray-600 rounded text-sm max-w-xs" />
+                        <button type="button" onClick={() => { const ids = sortedList.map(i => i.id); setGalleryBulkSelected(new Set(ids)) }} className="bg-blue-600 px-3 py-1.5 rounded text-sm">Select all filtered ({sortedList.length})</button>
+                    </div>
+                </div>
+            )}
+
             {/* Sort + Bulk actions toolbar */}
             {galleryList.length > 0 && (
                 <div className="mb-4 space-y-3">
@@ -341,7 +419,7 @@ export default function GalleryAdmin() {
                         <select value={sortOption} onChange={e => handleSortChange(e.target.value as SortOption)} className="p-1.5 bg-gray-700 border border-gray-600 rounded text-sm">
                             {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                         </select>
-                        <span className="text-sm text-gray-500">{galleryList.length} items</span>
+                        <span className="text-sm text-gray-500">{sortedList.length}{filteredList.length !== galleryList.length ? ` of ${galleryList.length}` : ''} items</span>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="text-sm text-gray-400">Bulk ({galleryBulkSelected.size}):</span>
