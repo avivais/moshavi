@@ -99,7 +99,7 @@ export default function GalleryClient() {
             )}
 
             {!loading && !error && items.length > 0 && (
-                <div className="columns-2 sm:columns-3 md:columns-4 gap-3">
+                <div className="columns-2 sm:columns-3 lg:columns-4 gap-3">
                     {items.map((item, index) => (
                         <div key={item.id} className="break-inside-avoid mb-3">
                             <GalleryCell
