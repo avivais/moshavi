@@ -67,10 +67,11 @@ function SortableCard({ item, isSelected, hasPending, onToggleSelect, onEdit, on
                 <input type="checkbox" checked={isSelected} onChange={onToggleSelect} onClick={e => e.stopPropagation()} className="rounded" />
                 <span className="text-xs truncate flex-1 cursor-grab">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
             </div>
-            <div className="aspect-square bg-gray-900 relative">
+            <div className="aspect-square bg-gray-900 relative group/card">
                 {(item.thumbnail_src || item.src) && <img src={item.thumbnail_src || item.src} alt={item.alt || ''} className="w-full h-full object-cover" />}
                 {item.show_in_carousel ? <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span> : null}
                 {!item.visible && <span className="absolute top-1 left-1 bg-red-600 text-white text-xs px-1 rounded">Hidden</span>}
+                {item.src && <div className="hidden group-hover/card:block absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none"><img src={item.src} alt="" className="max-w-[300px] max-h-[300px] object-contain rounded shadow-lg border border-gray-600" /></div>}
             </div>
             <div className="p-1 text-xs space-y-0.5">
                 <div className="truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
@@ -94,10 +95,11 @@ function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHid
                 <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="rounded" />
                 <span className="text-xs truncate">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
             </label>
-            <div className="aspect-square bg-gray-900 relative">
+            <div className="aspect-square bg-gray-900 relative group/card">
                 {(item.thumbnail_src || item.src) && <img src={item.thumbnail_src || item.src} alt={item.alt || ''} className="w-full h-full object-cover" />}
                 {item.show_in_carousel ? <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span> : null}
                 {!item.visible && <span className="absolute top-1 left-1 bg-red-600 text-white text-xs px-1 rounded">Hidden</span>}
+                {item.src && <div className="hidden group-hover/card:block absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none"><img src={item.src} alt="" className="max-w-[300px] max-h-[300px] object-contain rounded shadow-lg border border-gray-600" /></div>}
             </div>
             <div className="p-1 text-xs space-y-0.5">
                 <div className="truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
@@ -116,6 +118,7 @@ export default function GalleryAdmin() {
     const { authToken, isAuthenticated, message, setMessage } = useAdminAuth()
 
     const [galleryList, setGalleryList] = useState<GalleryMedia[]>([])
+    const [loading, setLoading] = useState(true)
     const [galleryUploadProgress, setGalleryUploadProgress] = useState<{ current: number; total: number } | null>(null)
     const [uploadSortMethod, setUploadSortMethod] = useState<string>(() => {
         if (typeof window !== 'undefined') return localStorage.getItem('upload_sort_method') || 'manual'
@@ -195,9 +198,11 @@ export default function GalleryAdmin() {
 
     const refreshGallery = useCallback(() => {
         if (authToken) {
+            setLoading(true)
             fetch('/api/admin/gallery', { headers: { 'Authorization': authToken } })
                 .then(res => res.ok ? res.json() : [])
                 .then((list: GalleryMedia[]) => { setGalleryList(list); snapshotRef.current = list; setPendingChanges(new Map()) })
+                .finally(() => setLoading(false))
         }
     }, [authToken])
 
@@ -217,6 +222,30 @@ export default function GalleryAdmin() {
     useEffect(() => {
         setGalleryBulkSelected(new Set())
     }, [filterType, filterSize, filterVisibility, filterCarousel, filterEventTag, filterTakenAt, searchQuery])
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            const target = e.target as HTMLElement
+            if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') return
+            if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+                e.preventDefault()
+                setGalleryBulkSelected(new Set(sortedList.map(i => i.id)))
+            }
+            if (e.key === 'Escape') {
+                if (galleryEdit) setGalleryEdit(null)
+                else if (bulkEditOpen) setBulkEditOpen(false)
+                else if (confirmDelete) setConfirmDelete(null)
+                else setGalleryBulkSelected(new Set())
+            }
+            if (e.key === 'Delete' && galleryBulkSelected.size > 0) {
+                Array.from(galleryBulkSelected).forEach(id => applyPending(id, { visible: 0 }))
+                setMessage('Hide staged')
+            }
+        }
+        window.addEventListener('keydown', handler)
+        return () => window.removeEventListener('keydown', handler)
+    }, [sortedList, galleryEdit, bulkEditOpen, confirmDelete, galleryBulkSelected, applyPending, setMessage])
 
     // Unsaved changes guard
     useEffect(() => {
@@ -559,7 +588,24 @@ export default function GalleryAdmin() {
             )}
 
             {/* Gallery grid */}
-            {sortedList.length > 0 && (
+            {loading && (
+                <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="border border-gray-700 rounded overflow-hidden animate-pulse">
+                            <div className="h-6 bg-gray-700" />
+                            <div className="aspect-square bg-gray-800" />
+                            <div className="h-8 bg-gray-700" />
+                        </div>
+                    ))}
+                </div>
+            )}
+            {!loading && galleryList.length === 0 && (
+                <div className="mb-6 p-8 bg-gray-800 rounded-lg text-center">
+                    <p className="text-gray-400 text-lg mb-2">No gallery items yet</p>
+                    <p className="text-gray-500 text-sm">Upload photos and videos using the form above.</p>
+                </div>
+            )}
+            {!loading && sortedList.length > 0 && (
                 sortOption === 'manual' ? (
                     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
                         <SortableContext items={sortedList.map(i => i.id)} strategy={rectSortingStrategy}>
