@@ -178,7 +178,10 @@ export async function POST(request: Request) {
         const formData = await request.formData();
         const eventTag = (formData.get('event_tag') as string)?.trim() || null;
         const caption = ((formData.get('caption') as string) ?? '').trim().slice(0, 2000);
+        const altOverride = ((formData.get('alt') as string) ?? '').trim().slice(0, 2000);
         const date = ((formData.get('date') as string) ?? '').trim().slice(0, 200);
+        const takenAtOverride = ((formData.get('taken_at') as string) ?? '').trim() || null;
+        const sortMethod = ((formData.get('sort_method') as string) ?? '').trim() || 'manual';
 
         const files: File[] = [];
         for (const [, value] of formData.entries()) {
@@ -223,14 +226,16 @@ export async function POST(request: Request) {
 
             const baseName = randomUUID();
             const buffer = Buffer.from(await file.arrayBuffer());
-            const alt = caption || file.name || '';
+            const alt = altOverride || caption || file.name || '';
 
             if (isImage(mime)) {
                 const result = await processImage(buffer, mime, baseName, root);
-                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'photo', caption, alt, date, eventTag, result.takenAt, result.fileSize, nextOrder++);
+                const takenAt = takenAtOverride || result.takenAt;
+                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'photo', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++);
             } else {
                 const result = await processVideo(buffer, mime, baseName, root);
-                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'video', caption, alt, date, eventTag, result.takenAt, result.fileSize, nextOrder++);
+                const takenAt = takenAtOverride || result.takenAt;
+                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'video', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++);
             }
 
             const row = db.prepare('SELECT id, src, thumbnail_src, width, height FROM gallery_media ORDER BY id DESC LIMIT 1').get() as {
@@ -241,6 +246,16 @@ export async function POST(request: Request) {
                 height: number;
             };
             results.push(row);
+        }
+
+        // Re-sort the batch by taken_at if requested
+        if (sortMethod === 'taken_at_desc' && results.length > 1) {
+            const batchIds = results.map(r => r.id);
+            const placeholders = batchIds.map(() => '?').join(',');
+            const rows = db.prepare(`SELECT id, taken_at FROM gallery_media WHERE id IN (${placeholders}) ORDER BY COALESCE(taken_at, '9999') DESC`).all(...batchIds) as Array<{ id: number; taken_at: string | null }>;
+            const baseOrder = maxOrderRow.next_order;
+            const updateOrder = db.prepare('UPDATE gallery_media SET gallery_order = ? WHERE id = ?');
+            rows.forEach((row, i) => updateOrder.run(baseOrder + i, row.id));
         }
 
         return NextResponse.json({ success: true, items: results }, { status: 201 });

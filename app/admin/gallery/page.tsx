@@ -117,6 +117,16 @@ export default function GalleryAdmin() {
 
     const [galleryList, setGalleryList] = useState<GalleryMedia[]>([])
     const [galleryUploadProgress, setGalleryUploadProgress] = useState<{ current: number; total: number } | null>(null)
+    const [uploadSortMethod, setUploadSortMethod] = useState<string>(() => {
+        if (typeof window !== 'undefined') return localStorage.getItem('upload_sort_method') || 'manual'
+        return 'manual'
+    })
+    const [uploadEventTag, setUploadEventTag] = useState('')
+    const [uploadCaption, setUploadCaption] = useState('')
+    const [uploadAlt, setUploadAlt] = useState('')
+    const [uploadDate, setUploadDate] = useState('')
+    const [uploadTakenAt, setUploadTakenAt] = useState('')
+    const [isDragOver, setIsDragOver] = useState(false)
     const [galleryEdit, setGalleryEdit] = useState<GalleryMedia | null>(null)
     const [galleryBulkSelected, setGalleryBulkSelected] = useState<Set<number>>(new Set())
     const [galleryBulkEventTag, setGalleryBulkEventTag] = useState('')
@@ -203,13 +213,18 @@ export default function GalleryAdmin() {
         setGalleryBulkSelected(new Set())
     }, [filterType, filterSize, filterVisibility, filterCarousel, filterEventTag, filterTakenAt, searchQuery])
 
-    const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const files = e.target.files
-        if (!files?.length || !authToken) return
+    const doUpload = async (files: FileList | File[]) => {
+        if (!files.length || !authToken) return
         const total = files.length
         setGalleryUploadProgress({ current: 0, total })
         const formData = new FormData()
         for (let i = 0; i < files.length; i++) formData.append('file', files[i])
+        if (uploadEventTag.trim()) formData.append('event_tag', uploadEventTag.trim())
+        if (uploadCaption.trim()) formData.append('caption', uploadCaption.trim())
+        if (uploadAlt.trim()) formData.append('alt', uploadAlt.trim())
+        if (uploadDate.trim()) formData.append('date', uploadDate.trim())
+        if (uploadTakenAt.trim()) formData.append('taken_at', uploadTakenAt.trim())
+        formData.append('sort_method', uploadSortMethod)
         try {
             const xhr = new XMLHttpRequest()
             xhr.open('POST', '/api/admin/gallery/upload')
@@ -232,8 +247,21 @@ export default function GalleryAdmin() {
             setMessage(err instanceof Error ? err.message : 'Upload failed')
         } finally {
             setGalleryUploadProgress(null)
-            e.target.value = ''
         }
+    }
+
+    const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files
+        if (!files?.length) return
+        await doUpload(files)
+        e.target.value = ''
+    }
+
+    const handleDrop = async (e: React.DragEvent) => {
+        e.preventDefault()
+        setIsDragOver(false)
+        const files = e.dataTransfer.files
+        if (files.length > 0) await doUpload(files)
     }
 
     const handleGalleryUpdate = async (payload: Partial<GalleryMedia> & { id: number }) => {
@@ -345,16 +373,43 @@ export default function GalleryAdmin() {
 
             {/* Upload */}
             <div className="mb-6 p-4 bg-gray-800 rounded-lg">
-                <h2 className="text-xl font-bold mb-2">Upload</h2>
-                <label className="inline-flex items-center justify-center min-h-[48px] min-w-[200px] px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer text-white font-medium touch-manipulation">
-                    <input type="file" accept="image/*,video/*" multiple className="sr-only" onChange={handleGalleryUpload} disabled={!!galleryUploadProgress} />
-                    {galleryUploadProgress ? `Uploading ${galleryUploadProgress.current} of ${galleryUploadProgress.total}…` : 'Add photos / videos'}
-                </label>
+                <h2 className="text-xl font-bold mb-3">Upload</h2>
+                <div
+                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${isDragOver ? 'border-blue-400 bg-blue-900/20' : 'border-gray-600'}`}
+                    onDragOver={e => { e.preventDefault(); setIsDragOver(true) }}
+                    onDragLeave={() => setIsDragOver(false)}
+                    onDrop={handleDrop}
+                >
+                    <label className="inline-flex items-center justify-center min-h-[48px] min-w-[200px] px-6 py-4 bg-blue-600 hover:bg-blue-700 rounded-lg cursor-pointer text-white font-medium touch-manipulation">
+                        <input type="file" accept="image/*,video/*" multiple className="sr-only" onChange={handleGalleryUpload} disabled={!!galleryUploadProgress} />
+                        {galleryUploadProgress ? `Uploading ${galleryUploadProgress.current} of ${galleryUploadProgress.total}…` : 'Choose files'}
+                    </label>
+                    <p className="mt-2 text-sm text-gray-400">or drag and drop files here</p>
+                </div>
                 {galleryUploadProgress && (
                     <div className="mt-2 w-full max-w-xs h-2 bg-gray-700 rounded overflow-hidden">
                         <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${(galleryUploadProgress.current / galleryUploadProgress.total) * 100}%` }} />
                     </div>
                 )}
+                <div className="mt-3 space-y-2">
+                    <div className="flex items-center gap-2">
+                        <label className="text-sm text-gray-400 whitespace-nowrap">Sort new uploads by:</label>
+                        <select value={uploadSortMethod} onChange={e => { setUploadSortMethod(e.target.value); localStorage.setItem('upload_sort_method', e.target.value) }} className="p-1.5 bg-gray-700 border border-gray-600 rounded text-sm">
+                            <option value="manual">Add to end</option>
+                            <option value="taken_at_desc">Taken at (newest first)</option>
+                        </select>
+                    </div>
+                    <details className="text-sm">
+                        <summary className="cursor-pointer text-gray-400 hover:text-gray-300">Batch metadata (optional)</summary>
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                            <div><label className="block text-xs text-gray-500">Event tag</label><input value={uploadEventTag} onChange={e => setUploadEventTag(e.target.value)} className="w-full p-1.5 bg-gray-700 border border-gray-600 rounded text-sm" /></div>
+                            <div><label className="block text-xs text-gray-500">Caption</label><input value={uploadCaption} onChange={e => setUploadCaption(e.target.value)} className="w-full p-1.5 bg-gray-700 border border-gray-600 rounded text-sm" /></div>
+                            <div><label className="block text-xs text-gray-500">Alt text</label><input value={uploadAlt} onChange={e => setUploadAlt(e.target.value)} className="w-full p-1.5 bg-gray-700 border border-gray-600 rounded text-sm" /></div>
+                            <div><label className="block text-xs text-gray-500">Date label</label><input value={uploadDate} onChange={e => setUploadDate(e.target.value)} className="w-full p-1.5 bg-gray-700 border border-gray-600 rounded text-sm" /></div>
+                            <div><label className="block text-xs text-gray-500">Taken at</label><input type="datetime-local" value={uploadTakenAt} onChange={e => setUploadTakenAt(e.target.value)} className="w-full p-1.5 bg-gray-700 border border-gray-600 rounded text-sm" /></div>
+                        </div>
+                    </details>
+                </div>
             </div>
 
             {/* Storage dashboard */}
