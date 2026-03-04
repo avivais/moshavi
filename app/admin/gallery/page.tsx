@@ -130,6 +130,8 @@ export default function GalleryAdmin() {
     const [galleryEdit, setGalleryEdit] = useState<GalleryMedia | null>(null)
     const [galleryBulkSelected, setGalleryBulkSelected] = useState<Set<number>>(new Set())
     const [galleryBulkEventTag, setGalleryBulkEventTag] = useState('')
+    const [bulkEditOpen, setBulkEditOpen] = useState(false)
+    const [bulkEditFields, setBulkEditFields] = useState<{ event_tag: string; caption: string; alt: string; date: string; taken_at: string }>({ event_tag: '', caption: '', alt: '', date: '', taken_at: '' })
     const [confirmDelete, setConfirmDelete] = useState<{ ids: number[]; totalSize: number } | null>(null)
     const [storageData, setStorageData] = useState<{
         disk: { total: number; used: number; free: number; percent: number }
@@ -321,6 +323,25 @@ export default function GalleryAdmin() {
         const json = await res.json()
         if (json.success) { setMessage('Bulk action done'); setGalleryBulkSelected(new Set()); refreshGallery() }
         else setMessage(json.error || 'Bulk action failed')
+    }
+
+    const handleBulkEdit = async () => {
+        if (!authToken || galleryBulkSelected.size === 0) return
+        const ids = Array.from(galleryBulkSelected)
+        const fields: Record<string, string | null | undefined> = {}
+        if (bulkEditFields.event_tag.trim()) fields.event_tag = bulkEditFields.event_tag.trim()
+        if (bulkEditFields.caption.trim()) fields.caption = bulkEditFields.caption.trim()
+        if (bulkEditFields.alt.trim()) fields.alt = bulkEditFields.alt.trim()
+        if (bulkEditFields.date.trim()) fields.date = bulkEditFields.date.trim()
+        if (bulkEditFields.taken_at.trim()) fields.taken_at = bulkEditFields.taken_at.trim()
+        if (Object.keys(fields).length === 0) { setMessage('No fields to update'); return }
+        const res = await fetch('/api/admin/gallery/bulk', {
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+            body: JSON.stringify({ action: 'edit', ids, fields }),
+        })
+        const json = await res.json()
+        if (json.success) { setMessage(`Updated ${ids.length} items`); setBulkEditOpen(false); setBulkEditFields({ event_tag: '', caption: '', alt: '', date: '', taken_at: '' }); refreshGallery() }
+        else setMessage(json.error || 'Bulk edit failed')
     }
 
     const toggleGalleryBulk = (id: number) => {
@@ -588,6 +609,27 @@ export default function GalleryAdmin() {
                 </div>
             )}
 
+            {/* Bulk metadata edit modal */}
+            {bulkEditOpen && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setBulkEditOpen(false)}>
+                    <div className="bg-gray-800 rounded-lg max-w-md w-full p-4 shadow-xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold mb-3">Bulk edit metadata ({galleryBulkSelected.size} items)</h3>
+                        <p className="text-xs text-gray-400 mb-3">Only non-empty fields will be applied.</p>
+                        <div className="space-y-2">
+                            <div><label className="block text-sm">Event tag</label><input value={bulkEditFields.event_tag} onChange={e => setBulkEditFields(p => ({ ...p, event_tag: e.target.value }))} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
+                            <div><label className="block text-sm">Caption</label><input value={bulkEditFields.caption} onChange={e => setBulkEditFields(p => ({ ...p, caption: e.target.value }))} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
+                            <div><label className="block text-sm">Alt text</label><input value={bulkEditFields.alt} onChange={e => setBulkEditFields(p => ({ ...p, alt: e.target.value }))} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
+                            <div><label className="block text-sm">Date (display label)</label><input value={bulkEditFields.date} onChange={e => setBulkEditFields(p => ({ ...p, date: e.target.value }))} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
+                            <div><label className="block text-sm">Taken at</label><input type="datetime-local" value={bulkEditFields.taken_at} onChange={e => setBulkEditFields(p => ({ ...p, taken_at: e.target.value }))} className="w-full p-2 bg-gray-700 border border-gray-600 rounded" /></div>
+                        </div>
+                        <div className="flex gap-2 pt-3">
+                            <button type="button" onClick={handleBulkEdit} className="bg-blue-600 px-4 py-2 rounded">Apply</button>
+                            <button type="button" onClick={() => setBulkEditOpen(false)} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Unified sticky bulk bar */}
             {galleryBulkSelected.size > 0 && (
                 <div className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-600 px-4 py-3 z-40">
@@ -604,6 +646,7 @@ export default function GalleryAdmin() {
                             <button type="button" onClick={() => handleGalleryBulk('remove_from_carousel')} disabled={!hasCarouselSelected} className="bg-gray-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">- Carousel</button>
                             <button type="button" onClick={() => handleGalleryBulk('hide')} disabled={!hasVisibleSelected} className="bg-yellow-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Hide</button>
                             <button type="button" onClick={() => handleGalleryBulk('show')} disabled={!hasHiddenSelected} className="bg-green-700 px-3 py-1.5 rounded text-sm disabled:opacity-50">Show</button>
+                            <button type="button" onClick={() => setBulkEditOpen(true)} className="bg-blue-600 px-3 py-1.5 rounded text-sm">Edit metadata</button>
                             <button type="button" onClick={() => requestHardDelete(Array.from(galleryBulkSelected))} className="bg-red-600 px-3 py-1.5 rounded text-sm">Delete</button>
                             <button type="button" onClick={() => setGalleryBulkSelected(new Set())} className="bg-gray-700 px-3 py-1.5 rounded text-sm">Clear</button>
                         </div>
