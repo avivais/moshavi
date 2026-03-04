@@ -71,7 +71,7 @@ export async function POST(request: Request) {
             case 'edit': {
                 const { fields } = parsed.data;
                 const updates: string[] = [];
-                const vals: unknown[] = [];
+                const vals: (string | number | null)[] = [];
                 if (fields.event_tag !== undefined) { updates.push('event_tag = ?'); vals.push(fields.event_tag != null ? String(fields.event_tag).slice(0, 500) : null); }
                 if (fields.caption !== undefined) { updates.push('caption = ?'); vals.push(String(fields.caption).slice(0, 2000)); }
                 if (fields.alt !== undefined) { updates.push('alt = ?'); vals.push(String(fields.alt).slice(0, 2000)); }
