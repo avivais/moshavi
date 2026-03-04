@@ -121,6 +121,10 @@ export default function GalleryAdmin() {
     const [galleryBulkSelected, setGalleryBulkSelected] = useState<Set<number>>(new Set())
     const [galleryBulkEventTag, setGalleryBulkEventTag] = useState('')
     const [confirmDelete, setConfirmDelete] = useState<{ ids: number[]; totalSize: number } | null>(null)
+    const [storageData, setStorageData] = useState<{
+        disk: { total: number; used: number; free: number; percent: number }
+        gallery: { images: { bytes: number; count: number }; videos: { bytes: number; count: number }; thumbs: { bytes: number }; total: { bytes: number; count: number } }
+    } | null>(null)
     const [sortOption, setSortOption] = useState<SortOption>(() => {
         if (typeof window !== 'undefined') return (localStorage.getItem('gallery_sort') as SortOption) || 'manual'
         return 'manual'
@@ -143,9 +147,18 @@ export default function GalleryAdmin() {
         }
     }, [authToken])
 
+    const refreshStorage = useCallback(() => {
+        if (authToken) {
+            fetch('/api/admin/gallery/storage', { headers: { 'Authorization': authToken } })
+                .then(res => res.ok ? res.json() : null)
+                .then(d => { if (d) setStorageData(d) })
+                .catch(() => {})
+        }
+    }, [authToken])
+
     useEffect(() => {
-        if (isAuthenticated && authToken) refreshGallery()
-    }, [isAuthenticated, authToken, refreshGallery])
+        if (isAuthenticated && authToken) { refreshGallery(); refreshStorage() }
+    }, [isAuthenticated, authToken, refreshGallery, refreshStorage])
 
     const handleGalleryUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const files = e.target.files
@@ -171,7 +184,7 @@ export default function GalleryAdmin() {
             })
             setGalleryUploadProgress({ current: total, total })
             setMessage('Upload successful')
-            refreshGallery()
+            refreshGallery(); refreshStorage()
         } catch (err) {
             setMessage(err instanceof Error ? err.message : 'Upload failed')
         } finally {
@@ -221,7 +234,7 @@ export default function GalleryAdmin() {
             if (json.success) setMessage(`Permanently deleted ${ids.length} items`); else setMessage(json.error || 'Bulk delete failed')
         }
         setGalleryBulkSelected(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n })
-        refreshGallery()
+        refreshGallery(); refreshStorage()
     }
 
     const handleGalleryBulk = async (action: 'add_to_carousel' | 'remove_from_carousel' | 'set_event_tag' | 'hide' | 'show' | 'delete') => {
@@ -262,8 +275,12 @@ export default function GalleryAdmin() {
         }
     }
 
-    // Conditional bulk action checks
+    // Selection stats
     const selectedItems = galleryList.filter(i => galleryBulkSelected.has(i.id))
+    const selectedImages = selectedItems.filter(i => i.type === 'photo')
+    const selectedVideos = selectedItems.filter(i => i.type === 'video')
+    const selectedTotalSize = selectedItems.reduce((s, i) => s + (i.file_size || 0), 0)
+    // Conditional bulk action checks
     const hasCarouselSelected = selectedItems.some(i => i.show_in_carousel)
     const hasVisibleSelected = selectedItems.some(i => i.visible)
     const hasHiddenSelected = selectedItems.some(i => !i.visible)
@@ -296,6 +313,25 @@ export default function GalleryAdmin() {
                     </div>
                 )}
             </div>
+
+            {/* Storage dashboard */}
+            {storageData && (
+                <div className="mb-6 p-4 bg-gray-800 rounded-lg">
+                    <h2 className="text-sm font-bold mb-2 text-gray-400">Storage</h2>
+                    <div className="flex flex-wrap gap-4 text-sm mb-3">
+                        <span>Images: {formatFileSize(storageData.gallery.images.bytes)} ({storageData.gallery.images.count})</span>
+                        <span>Videos: {formatFileSize(storageData.gallery.videos.bytes)} ({storageData.gallery.videos.count})</span>
+                        <span>Thumbs: {formatFileSize(storageData.gallery.thumbs.bytes)}</span>
+                        <span className="font-medium">Total: {formatFileSize(storageData.gallery.total.bytes)} ({storageData.gallery.total.count} files)</span>
+                    </div>
+                    <div className="text-xs text-gray-500 mb-1">
+                        Disk: {formatFileSize(storageData.disk.used)} used of {formatFileSize(storageData.disk.total)} ({storageData.disk.percent}% used, {formatFileSize(storageData.disk.free)} free)
+                    </div>
+                    <div className="w-full h-3 bg-gray-700 rounded overflow-hidden">
+                        <div className={`h-full transition-all duration-300 ${storageData.disk.percent > 85 ? 'bg-red-500' : storageData.disk.percent > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${storageData.disk.percent}%` }} />
+                    </div>
+                </div>
+            )}
 
             {/* Sort + Bulk actions toolbar */}
             {galleryList.length > 0 && (
@@ -414,6 +450,29 @@ export default function GalleryAdmin() {
                         <div className="flex gap-3 justify-end">
                             <button type="button" onClick={() => setConfirmDelete(null)} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
                             <button type="button" onClick={executeHardDelete} className="bg-red-600 px-4 py-2 rounded font-medium">Delete permanently</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Unified sticky bulk bar */}
+            {galleryBulkSelected.size > 0 && (
+                <div className="fixed bottom-0 left-0 right-0 bg-gray-800 border-t border-gray-600 px-4 py-3 z-40">
+                    <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-between gap-3">
+                        <div className="text-sm">
+                            <span className="font-medium">Selected: </span>
+                            {selectedImages.length > 0 && <span>{selectedImages.length} image{selectedImages.length > 1 ? 's' : ''} ({formatFileSize(selectedImages.reduce((s, i) => s + (i.file_size || 0), 0))})</span>}
+                            {selectedImages.length > 0 && selectedVideos.length > 0 && <span>, </span>}
+                            {selectedVideos.length > 0 && <span>{selectedVideos.length} video{selectedVideos.length > 1 ? 's' : ''} ({formatFileSize(selectedVideos.reduce((s, i) => s + (i.file_size || 0), 0))})</span>}
+                            <span className="text-gray-400"> — Total: {selectedItems.length} ({formatFileSize(selectedTotalSize)})</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <button type="button" onClick={() => handleGalleryBulk('add_to_carousel')} className="bg-green-600 px-3 py-1.5 rounded text-sm">+ Carousel</button>
+                            <button type="button" onClick={() => handleGalleryBulk('remove_from_carousel')} disabled={!hasCarouselSelected} className="bg-gray-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">- Carousel</button>
+                            <button type="button" onClick={() => handleGalleryBulk('hide')} disabled={!hasVisibleSelected} className="bg-yellow-600 px-3 py-1.5 rounded text-sm disabled:opacity-50">Hide</button>
+                            <button type="button" onClick={() => handleGalleryBulk('show')} disabled={!hasHiddenSelected} className="bg-green-700 px-3 py-1.5 rounded text-sm disabled:opacity-50">Show</button>
+                            <button type="button" onClick={() => requestHardDelete(Array.from(galleryBulkSelected))} className="bg-red-600 px-3 py-1.5 rounded text-sm">Delete</button>
+                            <button type="button" onClick={() => setGalleryBulkSelected(new Set())} className="bg-gray-700 px-3 py-1.5 rounded text-sm">Clear</button>
                         </div>
                     </div>
                 </div>
