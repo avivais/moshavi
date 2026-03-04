@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
+import { writeFile, mkdir, stat } from 'fs/promises';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
+import exifReader from 'exif-reader';
 import db from '../../../../../database';
 
 const BEARER = `Bearer ${process.env.ADMIN_PASSWORD}`;
@@ -49,10 +50,12 @@ async function processImage(
     mime: string,
     baseName: string,
     root: string
-): Promise<{ src: string; thumbnail_src: string; width: number; height: number }> {
+): Promise<{ src: string; thumbnail_src: string; width: number; height: number; takenAt: string | null; fileSize: number }> {
     const ext = getExt(mime);
     const srcPath = path.join(root, GALLERY_DIR, baseName + ext);
     await writeFile(srcPath, buffer);
+
+    const fileSize = (await stat(srcPath)).size;
 
     const thumbName = `${baseName}_thumb${ext}`;
     const thumbPath = path.join(root, THUMBS_DIR, thumbName);
@@ -63,11 +66,28 @@ async function processImage(
     const width = fullMeta.width ?? meta.width ?? 0;
     const height = fullMeta.height ?? meta.height ?? 0;
 
+    let takenAt: string | null = null;
+    try {
+        if (fullMeta.exif) {
+            const exifData = exifReader(fullMeta.exif);
+            const dto = exifData?.Photo?.DateTimeOriginal ?? exifData?.exif?.DateTimeOriginal;
+            if (dto instanceof Date) {
+                takenAt = dto.toISOString();
+            } else if (typeof dto === 'string') {
+                takenAt = new Date(dto.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3')).toISOString();
+            }
+        }
+    } catch {
+        // EXIF parsing can fail on some files
+    }
+
     return {
         src: `/media/gallery/${baseName}${ext}`,
         thumbnail_src: `/media/gallery/thumbs/${thumbName}`,
         width,
         height,
+        takenAt,
+        fileSize,
     };
 }
 
@@ -87,16 +107,20 @@ function extractVideoPoster(
     });
 }
 
-async function getVideoDimensions(filePath: string): Promise<{ width: number; height: number }> {
+async function getVideoMetadata(filePath: string): Promise<{ width: number; height: number; creationDate: string | null }> {
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(filePath, (err, data) => {
             if (err) return reject(err);
             const stream = data.streams.find((s) => s.width != null && s.height != null);
-            if (stream && stream.width != null && stream.height != null) {
-                resolve({ width: stream.width, height: stream.height });
-            } else {
-                resolve({ width: 1920, height: 1080 });
+            const width = stream?.width ?? 1920;
+            const height = stream?.height ?? 1080;
+
+            let creationDate: string | null = null;
+            const rawDate = data.format?.tags?.creation_time;
+            if (rawDate) {
+                try { creationDate = new Date(rawDate).toISOString(); } catch { /* ignore */ }
             }
+            resolve({ width, height, creationDate });
         });
     });
 }
@@ -106,10 +130,12 @@ async function processVideo(
     mime: string,
     baseName: string,
     root: string
-): Promise<{ src: string; thumbnail_src: string | null; width: number; height: number }> {
+): Promise<{ src: string; thumbnail_src: string | null; width: number; height: number; takenAt: string | null; fileSize: number }> {
     const ext = getExt(mime);
     const srcPath = path.join(root, GALLERY_DIR, baseName + ext);
     await writeFile(srcPath, buffer);
+
+    const fileSize = (await stat(srcPath)).size;
 
     const thumbName = `${baseName}_thumb.jpg`;
     const thumbPath = path.join(root, THUMBS_DIR, thumbName);
@@ -122,12 +148,14 @@ async function processVideo(
     }
     let width = 1920;
     let height = 1080;
+    let takenAt: string | null = null;
     try {
-        const dims = await getVideoDimensions(srcPath);
-        width = dims.width;
-        height = dims.height;
+        const meta = await getVideoMetadata(srcPath);
+        width = meta.width;
+        height = meta.height;
+        takenAt = meta.creationDate;
     } catch {
-        // keep default
+        // keep defaults
     }
 
     return {
@@ -135,6 +163,8 @@ async function processVideo(
         thumbnail_src,
         width,
         height,
+        takenAt,
+        fileSize,
     };
 }
 
@@ -162,9 +192,12 @@ export async function POST(request: Request) {
         }
 
         const root = process.cwd();
+        const maxOrderRow = db.prepare('SELECT COALESCE(MAX(gallery_order), -1) + 1 AS next_order FROM gallery_media').get() as { next_order: number };
+        let nextOrder = maxOrderRow.next_order;
+
         const insertStmt = db.prepare(
-            `INSERT INTO gallery_media (src, thumbnail_src, width, height, type, caption, alt, date, event_tag, show_in_carousel, carousel_order, gallery_order, visible)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 0, 1)`
+            `INSERT INTO gallery_media (src, thumbnail_src, width, height, type, caption, alt, date, event_tag, taken_at, file_size, show_in_carousel, carousel_order, gallery_order, visible)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 1)`
         );
         const results: Array<{ id: number; src: string; thumbnail_src: string | null; width: number; height: number }> = [];
 
@@ -193,21 +226,11 @@ export async function POST(request: Request) {
             const alt = caption || file.name || '';
 
             if (isImage(mime)) {
-                const { src, thumbnail_src, width, height } = await processImage(
-                    buffer,
-                    mime,
-                    baseName,
-                    root
-                );
-                insertStmt.run(src, thumbnail_src, width, height, 'photo', caption, alt, date, eventTag);
+                const result = await processImage(buffer, mime, baseName, root);
+                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'photo', caption, alt, date, eventTag, result.takenAt, result.fileSize, nextOrder++);
             } else {
-                const { src, thumbnail_src, width, height } = await processVideo(
-                    buffer,
-                    mime,
-                    baseName,
-                    root
-                );
-                insertStmt.run(src, thumbnail_src, width, height, 'video', caption, alt, date, eventTag);
+                const result = await processVideo(buffer, mime, baseName, root);
+                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'video', caption, alt, date, eventTag, result.takenAt, result.fileSize, nextOrder++);
             }
 
             const row = db.prepare('SELECT id, src, thumbnail_src, width, height FROM gallery_media ORDER BY id DESC LIMIT 1').get() as {
