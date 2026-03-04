@@ -69,7 +69,7 @@ async function processImage(
     let takenAt: string | null = null;
     try {
         if (fullMeta.exif) {
-            const exifData = exifReader(fullMeta.exif) as Record<string, Record<string, unknown>>;
+            const exifData = exifReader(fullMeta.exif) as unknown as Record<string, Record<string, unknown>>;
             const dto = exifData?.Photo?.DateTimeOriginal ?? exifData?.Exif?.DateTimeOriginal;
             if (dto instanceof Date) {
                 takenAt = dto.toISOString();
