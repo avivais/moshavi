@@ -329,10 +329,6 @@ export default function GalleryAdmin() {
         setMessage('Hide staged')
     }
 
-    const handleGalleryShow = (id: number) => {
-        applyPending(id, { visible: 1 })
-    }
-
     const handleSaveAll = async () => {
         if (!authToken || pendingChanges.size === 0) return
         setIsSaving(true)
@@ -341,6 +337,7 @@ export default function GalleryAdmin() {
             const reorderIds = entries.find(([, c]) => 'gallery_order' in c) ? galleryList.map(i => i.id) : null
             const promises: Promise<unknown>[] = []
             for (const [id, changes] of entries) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { gallery_order: _go, ...rest } = changes as Record<string, unknown>
                 if (Object.keys(rest).length > 0) {
                     promises.push(fetch('/api/admin/gallery', {
