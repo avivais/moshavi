@@ -27,19 +27,21 @@ function GalleryCell({ thumb, alt, ratio, onClick }: { thumb: string; alt: strin
     );
 }
 
-function useColumnCount() {
+function useColumnCount(itemCount: number) {
     const [cols, setCols] = useState(2);
     useEffect(() => {
         const update = () => {
             const w = window.innerWidth;
-            if (w >= 1024) setCols(4);
-            else if (w >= 640) setCols(3);
-            else setCols(2);
+            let c = 2;
+            if (w >= 1024) c = 4;
+            else if (w >= 640) c = 3;
+            const maxBalanced = Math.max(2, Math.floor(itemCount / 2));
+            setCols(Math.min(c, maxBalanced));
         };
         update();
         window.addEventListener('resize', update);
         return () => window.removeEventListener('resize', update);
-    }, []);
+    }, [itemCount]);
     return cols;
 }
 
@@ -102,7 +104,7 @@ export default function GalleryClient() {
         setLightboxIndex((i) => (i == null ? null : i >= items.length - 1 ? 0 : i + 1));
     }, [items.length]);
 
-    const colCount = useColumnCount();
+    const colCount = useColumnCount(items.length);
 
     const aspectRatio = (item: GalleryItem) => {
         if (item.width && item.height && item.height > 0) return item.width / item.height;
@@ -112,7 +114,7 @@ export default function GalleryClient() {
     const columns = useMemo(() => buildColumns(items, colCount), [items, colCount]);
 
     return (
-        <main className="min-h-screen px-4 md:px-8 lg:px-12 mx-auto max-w-screen-2xl">
+        <main className="min-h-screen px-4 md:px-8 lg:px-12 mx-auto max-w-screen-xl">
             <h1 className="text-3xl font-poiret-one text-center mb-6">Gallery</h1>
 
             {loading && (
