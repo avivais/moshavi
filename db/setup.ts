@@ -1,6 +1,7 @@
 import db from '../database';
 import * as fs from 'fs';
 import * as path from 'path';
+import sharp from 'sharp';
 
 if (require.main === module) {
     try {
@@ -87,6 +88,37 @@ if (require.main === module) {
                 }
                 console.log(`Migrated ${carouselRows.length} rows from carousel_images to gallery_media.`);
             }
+        }
+
+        // Migrate carousel files to gallery folder (physical files + DB refs)
+        const carouselFileRows = db.prepare("SELECT id, src, thumbnail_src FROM gallery_media WHERE src LIKE '/media/carousel/%'").all() as Array<{ id: number; src: string; thumbnail_src: string | null }>;
+        if (carouselFileRows.length > 0) {
+            const root = process.cwd();
+            const galleryDir = path.join(root, 'public', 'media', 'gallery');
+            const thumbsDir = path.join(root, 'public', 'media', 'gallery', 'thumbs');
+            fs.mkdirSync(galleryDir, { recursive: true });
+            fs.mkdirSync(thumbsDir, { recursive: true });
+            const updateStmt = db.prepare('UPDATE gallery_media SET src = ?, thumbnail_src = ?, file_size = ? WHERE id = ?');
+            let migrated = 0;
+            for (const row of carouselFileRows) {
+                const srcFile = path.join(root, 'public', row.src);
+                if (!fs.existsSync(srcFile)) { console.warn(`Carousel migrate: missing ${srcFile}`); continue; }
+                const filename = path.basename(row.src);
+                const destFile = path.join(galleryDir, filename);
+                const thumbFile = path.join(thumbsDir, filename);
+                try {
+                    fs.copyFileSync(srcFile, destFile);
+                    const fileSize = fs.statSync(destFile).size;
+                    try { sharp(destFile).resize(400, undefined, { withoutEnlargement: true }).toFile(thumbFile); } catch { /* thumb generation optional */ }
+                    const newSrc = `/media/gallery/${filename}`;
+                    const newThumb = `/media/gallery/thumbs/${filename}`;
+                    updateStmt.run(newSrc, newThumb, fileSize, row.id);
+                    migrated++;
+                } catch (e) {
+                    console.warn(`Carousel migrate: failed for id=${row.id}:`, e);
+                }
+            }
+            if (migrated > 0) console.log(`Migrated ${migrated} carousel files to gallery folder`);
         }
 
         const existsVideoSets = db.prepare<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name='video_sets'").get();
