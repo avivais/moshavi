@@ -9,6 +9,8 @@ export interface GalleryMedia {
     alt: string
     date: string
     event_tag: string | null
+    taken_at: string | null
+    file_size: number
     show_in_carousel: number
     carousel_order: number
     gallery_order: number

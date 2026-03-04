@@ -86,6 +86,7 @@ export const galleryMediaDataSchema = z.object({
   alt: safeString,
   date: safeString,
   event_tag: safeStringNullable,
+  taken_at: z.string().max(100).optional().nullable(),
   show_in_carousel: z.boolean().optional(),
   carousel_order: z.number().int().min(0).optional(),
   gallery_order: z.number().int().min(0).optional(),
@@ -121,6 +122,7 @@ export const galleryPutSchema = z.object({
   alt: galleryMediaDataSchema.shape.alt.optional(),
   date: galleryMediaDataSchema.shape.date.optional(),
   event_tag: galleryMediaDataSchema.shape.event_tag.optional(),
+  taken_at: galleryMediaDataSchema.shape.taken_at,
   show_in_carousel: galleryMediaDataSchema.shape.show_in_carousel.optional(),
   carousel_order: galleryMediaDataSchema.shape.carousel_order.optional(),
   gallery_order: galleryMediaDataSchema.shape.gallery_order.optional(),
@@ -145,7 +147,19 @@ export const galleryBulkSchema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('remove_from_carousel'), ids: z.array(z.number().int().positive()) }),
   z.object({ action: z.literal('set_event_tag'), ids: z.array(z.number().int().positive()), event_tag: z.string().max(500).optional().nullable() }),
   z.object({ action: z.literal('hide'), ids: z.array(z.number().int().positive()) }),
+  z.object({ action: z.literal('show'), ids: z.array(z.number().int().positive()) }),
   z.object({ action: z.literal('delete'), ids: z.array(z.number().int().positive()), hard: z.boolean().optional() }),
+  z.object({
+    action: z.literal('edit'),
+    ids: z.array(z.number().int().positive()),
+    fields: z.object({
+      event_tag: z.string().max(500).optional().nullable(),
+      caption: z.string().max(2000).optional(),
+      alt: z.string().max(2000).optional(),
+      date: z.string().max(200).optional(),
+      taken_at: z.string().max(100).optional().nullable(),
+    }),
+  }),
 ]);
 
 export type GalleryBulkData = z.infer<typeof galleryBulkSchema>;

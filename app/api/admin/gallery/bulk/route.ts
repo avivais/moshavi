@@ -47,12 +47,29 @@ export async function POST(request: Request) {
             case 'hide':
                 db.prepare(`UPDATE gallery_media SET visible = 0 WHERE id IN (${placeholders})`).run(...ids);
                 break;
+            case 'show':
+                db.prepare(`UPDATE gallery_media SET visible = 1 WHERE id IN (${placeholders})`).run(...ids);
+                break;
             case 'delete': {
                 const hard = 'hard' in parsed.data && parsed.data.hard === true;
                 if (hard) {
                     db.prepare(`DELETE FROM gallery_media WHERE id IN (${placeholders})`).run(...ids);
                 } else {
                     db.prepare(`UPDATE gallery_media SET visible = 0 WHERE id IN (${placeholders})`).run(...ids);
+                }
+                break;
+            }
+            case 'edit': {
+                const { fields } = parsed.data;
+                const updates: string[] = [];
+                const vals: unknown[] = [];
+                if (fields.event_tag !== undefined) { updates.push('event_tag = ?'); vals.push(fields.event_tag != null ? String(fields.event_tag).slice(0, 500) : null); }
+                if (fields.caption !== undefined) { updates.push('caption = ?'); vals.push(String(fields.caption).slice(0, 2000)); }
+                if (fields.alt !== undefined) { updates.push('alt = ?'); vals.push(String(fields.alt).slice(0, 2000)); }
+                if (fields.date !== undefined) { updates.push('date = ?'); vals.push(String(fields.date).slice(0, 200)); }
+                if (fields.taken_at !== undefined) { updates.push('taken_at = ?'); vals.push(fields.taken_at != null ? String(fields.taken_at).slice(0, 100) : null); }
+                if (updates.length > 0) {
+                    db.prepare(`UPDATE gallery_media SET ${updates.join(', ')} WHERE id IN (${placeholders})`).run(...vals, ...ids);
                 }
                 break;
             }

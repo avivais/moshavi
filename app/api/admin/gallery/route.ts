@@ -21,7 +21,7 @@ export async function GET(request: Request) {
         const list = db
             .prepare(
                 `SELECT id, src, thumbnail_src, width, height, type, caption, alt, date, event_tag,
-                        show_in_carousel, carousel_order, gallery_order, visible, created_at
+                        taken_at, file_size, show_in_carousel, carousel_order, gallery_order, visible, created_at
                  FROM gallery_media ORDER BY gallery_order ASC, id ASC`
             )
             .all();
@@ -132,6 +132,10 @@ export async function PUT(request: Request) {
         if (d.event_tag !== undefined) {
             updates.push('event_tag = ?');
             values.push(d.event_tag != null ? String(d.event_tag).slice(0, 500) : null);
+        }
+        if (d.taken_at !== undefined) {
+            updates.push('taken_at = ?');
+            values.push(d.taken_at != null ? String(d.taken_at).slice(0, 100) : null);
         }
         if (d.show_in_carousel !== undefined) {
             updates.push('show_in_carousel = ?');

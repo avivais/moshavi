@@ -1,4 +1,6 @@
 import db from '../database';
+import * as fs from 'fs';
+import * as path from 'path';
 
 if (require.main === module) {
     try {
@@ -42,6 +44,30 @@ if (require.main === module) {
             console.log('Created gallery_media table');
         } else {
             console.log('gallery_media table already exists');
+        }
+
+        // Add taken_at column if missing
+        try { db.exec('ALTER TABLE gallery_media ADD COLUMN taken_at TEXT'); console.log('Added taken_at column'); } catch { console.log('taken_at column already exists'); }
+
+        // Add file_size column if missing
+        try { db.exec('ALTER TABLE gallery_media ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0'); console.log('Added file_size column'); } catch { console.log('file_size column already exists'); }
+
+        // Backfill file_size from disk for any rows still at 0
+        const zeroSizeRows = db.prepare('SELECT id, src FROM gallery_media WHERE file_size = 0').all() as Array<{ id: number; src: string }>;
+        if (zeroSizeRows.length > 0) {
+            const updateStmt = db.prepare('UPDATE gallery_media SET file_size = ? WHERE id = ?');
+            let backfilled = 0;
+            for (const row of zeroSizeRows) {
+                const filePath = path.join(process.cwd(), 'public', row.src);
+                try {
+                    const stat = fs.statSync(filePath);
+                    updateStmt.run(stat.size, row.id);
+                    backfilled++;
+                } catch {
+                    console.warn(`Backfill: missing file for id=${row.id} path=${filePath}`);
+                }
+            }
+            if (backfilled > 0) console.log(`Backfilled file_size for ${backfilled} rows`);
         }
 
         // One-time migration: copy carousel_images into gallery_media so carousel keeps working
