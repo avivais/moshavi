@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAdminAuth } from '../hooks/useAdminAuth'
 import type { GalleryMedia } from '../types'
+import { formatFileSize } from '../../../lib/format'
 
 export default function GalleryAdmin() {
     const { authToken, isAuthenticated, message, setMessage } = useAdminAuth()
@@ -12,6 +13,7 @@ export default function GalleryAdmin() {
     const [galleryEdit, setGalleryEdit] = useState<GalleryMedia | null>(null)
     const [galleryBulkSelected, setGalleryBulkSelected] = useState<Set<number>>(new Set())
     const [galleryBulkEventTag, setGalleryBulkEventTag] = useState('')
+    const [confirmDelete, setConfirmDelete] = useState<{ ids: number[]; totalSize: number } | null>(null)
 
     const refreshGallery = useCallback(() => {
         if (authToken) {
@@ -89,21 +91,43 @@ export default function GalleryAdmin() {
         }
     }
 
-    const handleGalleryDelete = async (id: number, hard?: boolean) => {
+    const handleGallerySoftDelete = async (id: number) => {
         if (!authToken) return
-        const res = await fetch(`/api/admin/gallery?id=${id}${hard ? '&hard=1' : ''}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': authToken },
-        })
+        const res = await fetch(`/api/admin/gallery?id=${id}`, { method: 'DELETE', headers: { 'Authorization': authToken } })
         const json = await res.json()
         if (json.success) {
-            setMessage('Deleted')
+            setMessage('Hidden')
             setGalleryEdit(null)
-            setGalleryBulkSelected(prev => { const n = new Set(prev); n.delete(id); return n })
             refreshGallery()
         } else {
-            setMessage(json.error || 'Delete failed')
+            setMessage(json.error || 'Hide failed')
         }
+    }
+
+    const requestHardDelete = (ids: number[]) => {
+        const totalSize = galleryList.filter(i => ids.includes(i.id)).reduce((sum, i) => sum + (i.file_size || 0), 0)
+        setConfirmDelete({ ids, totalSize })
+    }
+
+    const executeHardDelete = async () => {
+        if (!authToken || !confirmDelete) return
+        const { ids } = confirmDelete
+        setConfirmDelete(null)
+        if (ids.length === 1) {
+            const res = await fetch(`/api/admin/gallery?id=${ids[0]}&hard=1`, { method: 'DELETE', headers: { 'Authorization': authToken } })
+            const json = await res.json()
+            if (json.success) { setMessage('Permanently deleted'); setGalleryEdit(null); } else { setMessage(json.error || 'Delete failed') }
+        } else {
+            const res = await fetch('/api/admin/gallery/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+                body: JSON.stringify({ action: 'delete', ids, hard: true }),
+            })
+            const json = await res.json()
+            if (json.success) { setMessage(`Permanently deleted ${ids.length} items`); } else { setMessage(json.error || 'Bulk delete failed') }
+        }
+        setGalleryBulkSelected(prev => { const n = new Set(prev); ids.forEach(id => n.delete(id)); return n })
+        refreshGallery()
     }
 
     const handleGalleryBulk = async (action: 'add_to_carousel' | 'remove_from_carousel' | 'set_event_tag' | 'hide' | 'delete') => {
@@ -218,7 +242,7 @@ export default function GalleryAdmin() {
                             <div className="p-1 text-xs truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
                             <div className="p-1 flex flex-wrap gap-1">
                                 <button type="button" onClick={() => setGalleryEdit(item)} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
-                                <button type="button" onClick={() => handleGalleryDelete(item.id)} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
+                                <button type="button" onClick={() => handleGallerySoftDelete(item.id)} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
                             </div>
                         </div>
                     ))}
@@ -277,9 +301,25 @@ export default function GalleryAdmin() {
                             <div className="flex gap-2 pt-2">
                                 <button type="submit" className="bg-blue-600 px-4 py-2 rounded">Save</button>
                                 <button type="button" onClick={() => setGalleryEdit(null)} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
-                                <button type="button" onClick={() => handleGalleryDelete(galleryEdit.id, true)} className="bg-red-600 px-4 py-2 rounded">Delete permanently</button>
+                                <button type="button" onClick={() => { setGalleryEdit(null); requestHardDelete([galleryEdit.id]); }} className="bg-red-600 px-4 py-2 rounded">Delete permanently</button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Hard delete confirmation modal */}
+            {confirmDelete && (
+                <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4" onClick={() => setConfirmDelete(null)}>
+                    <div className="bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl" onClick={e => e.stopPropagation()}>
+                        <h3 className="text-lg font-bold mb-3 text-red-400">Permanently delete {confirmDelete.ids.length} item{confirmDelete.ids.length > 1 ? 's' : ''}?</h3>
+                        <p className="text-gray-300 mb-4">
+                            This will free {formatFileSize(confirmDelete.totalSize)}. This action cannot be undone.
+                        </p>
+                        <div className="flex gap-3 justify-end">
+                            <button type="button" onClick={() => setConfirmDelete(null)} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
+                            <button type="button" onClick={executeHardDelete} className="bg-red-600 px-4 py-2 rounded font-medium">Delete permanently</button>
+                        </div>
                     </div>
                 </div>
             )}

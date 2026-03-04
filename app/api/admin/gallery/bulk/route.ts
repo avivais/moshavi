@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { unlink } from 'fs/promises';
+import path from 'path';
 import db from '../../../../../database';
 import { parseBody, galleryBulkSchema } from '../../../../../lib/api-schemas';
 
@@ -53,6 +55,13 @@ export async function POST(request: Request) {
             case 'delete': {
                 const hard = 'hard' in parsed.data && parsed.data.hard === true;
                 if (hard) {
+                    const rows = db.prepare(`SELECT src, thumbnail_src FROM gallery_media WHERE id IN (${placeholders})`).all(...ids) as Array<{ src: string; thumbnail_src: string | null }>;
+                    const root = process.cwd();
+                    for (const row of rows) {
+                        for (const p of [row.src, row.thumbnail_src]) {
+                            if (p) { try { await unlink(path.join(root, 'public', p)); } catch { /* file may not exist */ } }
+                        }
+                    }
                     db.prepare(`DELETE FROM gallery_media WHERE id IN (${placeholders})`).run(...ids);
                 } else {
                     db.prepare(`UPDATE gallery_media SET visible = 0 WHERE id IN (${placeholders})`).run(...ids);

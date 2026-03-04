@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { unlink } from 'fs/promises';
+import path from 'path';
 import db from '../../../../database';
 import {
     parseBody,
@@ -185,6 +187,13 @@ export async function DELETE(request: Request) {
         const hard = url.searchParams.get('hard') === '1' || url.searchParams.get('hard') === 'true';
 
         if (hard) {
+            const row = db.prepare('SELECT src, thumbnail_src FROM gallery_media WHERE id = ?').get(id) as { src: string; thumbnail_src: string | null } | undefined;
+            if (row) {
+                const root = process.cwd();
+                for (const p of [row.src, row.thumbnail_src]) {
+                    if (p) { try { await unlink(path.join(root, 'public', p)); } catch { /* file may not exist */ } }
+                }
+            }
             db.prepare('DELETE FROM gallery_media WHERE id = ?').run(id);
         } else {
             db.prepare('UPDATE gallery_media SET visible = 0 WHERE id = ?').run(id);
