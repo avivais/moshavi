@@ -223,6 +223,16 @@ export default function GalleryAdmin() {
         setGalleryBulkSelected(new Set())
     }, [filterType, filterSize, filterVisibility, filterCarousel, filterEventTag, filterTakenAt, searchQuery])
 
+    const applyPending = useCallback((id: number, changes: Record<string, unknown>) => {
+        setPendingChanges(prev => {
+            const next = new Map(prev)
+            const existing = next.get(id) ?? {}
+            next.set(id, { ...existing, ...changes })
+            return next
+        })
+        setGalleryList(prev => prev.map(item => item.id === id ? { ...item, ...changes } as GalleryMedia : item))
+    }, [])
+
     // Keyboard shortcuts
     useEffect(() => {
         const handler = (e: KeyboardEvent) => {
@@ -305,16 +315,6 @@ export default function GalleryAdmin() {
         const files = e.dataTransfer.files
         if (files.length > 0) await doUpload(files)
     }
-
-    const applyPending = useCallback((id: number, changes: Record<string, unknown>) => {
-        setPendingChanges(prev => {
-            const next = new Map(prev)
-            const existing = next.get(id) ?? {}
-            next.set(id, { ...existing, ...changes })
-            return next
-        })
-        setGalleryList(prev => prev.map(item => item.id === id ? { ...item, ...changes } as GalleryMedia : item))
-    }, [])
 
     const handleGalleryUpdate = (payload: Partial<GalleryMedia> & { id: number }) => {
         const { id, ...changes } = payload
