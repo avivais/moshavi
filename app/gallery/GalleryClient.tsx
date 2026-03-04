@@ -2,9 +2,6 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
 
-const STORAGE_KEY = 'galleryViewMode';
-type ViewMode = 'grid' | 'timeline';
-
 function GalleryCell({ thumb, alt, ratio, onClick }: { thumb: string; alt: string; ratio: number; onClick: () => void }) {
     const [loaded, setLoaded] = useState(false);
     return (
@@ -47,13 +44,7 @@ export default function GalleryClient() {
     const [items, setItems] = useState<GalleryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [viewMode, setViewMode] = useState<ViewMode>('grid');
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-
-    useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY) as ViewMode | null;
-        if (saved === 'grid' || saved === 'timeline') setViewMode(saved);
-    }, []);
 
     useEffect(() => {
         let mounted = true;
@@ -74,14 +65,6 @@ export default function GalleryClient() {
         return () => { mounted = false; };
     }, []);
 
-    useEffect(() => {
-        try {
-            localStorage.setItem(STORAGE_KEY, viewMode);
-        } catch {
-            // ignore
-        }
-    }, [viewMode]);
-
     const openLightbox = useCallback((index: number) => setLightboxIndex(index), []);
     const closeLightbox = useCallback(() => setLightboxIndex(null), []);
     const goPrev = useCallback(() => {
@@ -91,48 +74,14 @@ export default function GalleryClient() {
         setLightboxIndex((i) => (i == null ? null : i >= items.length - 1 ? 0 : i + 1));
     }, [items.length]);
 
-    const flatItems = items;
-    const byDate = items.reduce<Record<string, GalleryItem[]>>((acc, item) => {
-        const key = item.date || 'No date';
-        if (!acc[key]) acc[key] = [];
-        acc[key].push(item);
-        return acc;
-    }, {});
-    const dateGroups = Object.entries(byDate).sort(([a], [b]) => (a === 'No date' ? 1 : b === 'No date' ? -1 : 0));
-
     const aspectRatio = (item: GalleryItem) => {
         if (item.width && item.height && item.height > 0) return item.width / item.height;
         return 16 / 9;
     };
 
-    const renderCell = (item: GalleryItem, index: number, flatIndex: number) => (
-        <GalleryCell
-            key={item.id}
-            thumb={item.thumbnail_src || item.src}
-            alt={item.caption || item.alt || ''}
-            ratio={aspectRatio(item)}
-            onClick={() => openLightbox(flatIndex)}
-        />
-    );
-
     return (
         <main className="min-h-screen p-4 md:p-6 max-w-6xl mx-auto">
             <h1 className="text-3xl font-poiret-one text-center mb-6">Gallery</h1>
-
-            <div className="flex flex-wrap justify-center gap-2 mb-6" role="tablist" aria-label="Gallery view">
-                {(['grid', 'timeline'] as const).map((mode) => (
-                    <button
-                        key={mode}
-                        type="button"
-                        role="tab"
-                        aria-selected={viewMode === mode}
-                        className={`px-4 py-2 rounded-lg font-medium capitalize transition ${viewMode === mode ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
-                        onClick={() => setViewMode(mode)}
-                    >
-                        {mode === 'grid' ? 'Grid' : 'Timeline'}
-                    </button>
-                ))}
-            </div>
 
             {loading && (
                 <div className="flex justify-center py-12">
@@ -149,39 +98,24 @@ export default function GalleryClient() {
                 <p className="text-center text-gray-400 py-8">No media yet.</p>
             )}
 
-            {!loading && !error && items.length > 0 && viewMode === 'grid' && (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                    {flatItems.map((item, index) => (
-                        <div key={item.id} className="min-w-0">
-                            {renderCell(item, index, index)}
+            {!loading && !error && items.length > 0 && (
+                <div className="columns-2 sm:columns-3 md:columns-4 gap-3">
+                    {items.map((item, index) => (
+                        <div key={item.id} className="break-inside-avoid mb-3">
+                            <GalleryCell
+                                thumb={item.thumbnail_src || item.src}
+                                alt={item.caption || item.alt || ''}
+                                ratio={aspectRatio(item)}
+                                onClick={() => openLightbox(index)}
+                            />
                         </div>
                     ))}
                 </div>
             )}
 
-            {!loading && !error && items.length > 0 && viewMode === 'timeline' && (
-                <div className="space-y-8">
-                    {dateGroups.map(([date, groupItems]) => (
-                        <section key={date}>
-                            {date !== 'No date' && <h2 className="text-xl font-poiret-one mb-3">{date}</h2>}
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                {groupItems.map((item, i) => {
-                                    const flatIndex = flatItems.findIndex((x) => x.id === item.id);
-                                    return (
-                                        <div key={item.id} className="min-w-0">
-                                            {renderCell(item, i, flatIndex >= 0 ? flatIndex : 0)}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </section>
-                    ))}
-                </div>
-            )}
-
-            {lightboxIndex !== null && flatItems[lightboxIndex] && (
+            {lightboxIndex !== null && items[lightboxIndex] && (
                 <Lightbox
-                    items={flatItems}
+                    items={items}
                     currentIndex={lightboxIndex}
                     onClose={closeLightbox}
                     onPrev={goPrev}
