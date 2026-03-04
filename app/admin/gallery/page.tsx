@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core'
 import { SortableContext, rectSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
@@ -55,14 +55,14 @@ function formatDate(iso?: string | null): string {
     try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) } catch { return iso }
 }
 
-function SortableCard({ item, isSelected, onToggleSelect, onEdit, onHide }: {
-    item: GalleryMedia; isSelected: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void
+function SortableCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide }: {
+    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
     return (
-        <div ref={setNodeRef} style={style} className={`border rounded overflow-hidden ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+        <div ref={setNodeRef} style={style} className={`border rounded overflow-hidden ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
             <div className="flex items-center gap-1 p-1 bg-gray-700" {...attributes} {...listeners}>
                 <input type="checkbox" checked={isSelected} onChange={onToggleSelect} onClick={e => e.stopPropagation()} className="rounded" />
                 <span className="text-xs truncate flex-1 cursor-grab">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
@@ -85,11 +85,11 @@ function SortableCard({ item, isSelected, onToggleSelect, onEdit, onHide }: {
     )
 }
 
-function PlainCard({ item, isSelected, onToggleSelect, onEdit, onHide }: {
-    item: GalleryMedia; isSelected: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void
+function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide }: {
+    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void
 }) {
     return (
-        <div className={`border rounded overflow-hidden ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+        <div className={`border rounded overflow-hidden ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
             <label className="flex items-center gap-1 p-1 bg-gray-700">
                 <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="rounded" />
                 <span className="text-xs truncate">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
@@ -148,6 +148,9 @@ export default function GalleryAdmin() {
     const [filterEventTag, setFilterEventTag] = useState<string>('all')
     const [filterTakenAt, setFilterTakenAt] = useState<'all' | 'has' | 'none'>('all')
     const [searchQuery, setSearchQuery] = useState('')
+    const [pendingChanges, setPendingChanges] = useState<Map<number, Record<string, unknown>>>(new Map())
+    const [isSaving, setIsSaving] = useState(false)
+    const snapshotRef = useRef<GalleryMedia[]>([])
 
     const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -194,7 +197,7 @@ export default function GalleryAdmin() {
         if (authToken) {
             fetch('/api/admin/gallery', { headers: { 'Authorization': authToken } })
                 .then(res => res.ok ? res.json() : [])
-                .then(setGalleryList)
+                .then((list: GalleryMedia[]) => { setGalleryList(list); snapshotRef.current = list; setPendingChanges(new Map()) })
         }
     }, [authToken])
 
@@ -214,6 +217,14 @@ export default function GalleryAdmin() {
     useEffect(() => {
         setGalleryBulkSelected(new Set())
     }, [filterType, filterSize, filterVisibility, filterCarousel, filterEventTag, filterTakenAt, searchQuery])
+
+    // Unsaved changes guard
+    useEffect(() => {
+        if (pendingChanges.size === 0) return
+        const handler = (e: BeforeUnloadEvent) => { e.preventDefault() }
+        window.addEventListener('beforeunload', handler)
+        return () => window.removeEventListener('beforeunload', handler)
+    }, [pendingChanges.size])
 
     const doUpload = async (files: FileList | File[]) => {
         if (!files.length || !authToken) return
@@ -266,23 +277,69 @@ export default function GalleryAdmin() {
         if (files.length > 0) await doUpload(files)
     }
 
-    const handleGalleryUpdate = async (payload: Partial<GalleryMedia> & { id: number }) => {
-        if (!authToken) return
-        const res = await fetch('/api/admin/gallery', {
-            method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
-            body: JSON.stringify(payload),
+    const applyPending = useCallback((id: number, changes: Record<string, unknown>) => {
+        setPendingChanges(prev => {
+            const next = new Map(prev)
+            const existing = next.get(id) ?? {}
+            next.set(id, { ...existing, ...changes })
+            return next
         })
-        const json = await res.json()
-        if (json.success) { setMessage('Updated'); setGalleryEdit(null); refreshGallery() }
-        else setMessage(json.error || 'Update failed')
+        setGalleryList(prev => prev.map(item => item.id === id ? { ...item, ...changes } as GalleryMedia : item))
+    }, [])
+
+    const handleGalleryUpdate = (payload: Partial<GalleryMedia> & { id: number }) => {
+        const { id, ...changes } = payload
+        applyPending(id, changes)
+        setGalleryEdit(null)
+        setMessage('Change staged')
     }
 
-    const handleGallerySoftDelete = async (id: number) => {
-        if (!authToken) return
-        const res = await fetch(`/api/admin/gallery?id=${id}`, { method: 'DELETE', headers: { 'Authorization': authToken } })
-        const json = await res.json()
-        if (json.success) { setMessage('Hidden'); setGalleryEdit(null); refreshGallery() }
-        else setMessage(json.error || 'Hide failed')
+    const handleGallerySoftDelete = (id: number) => {
+        applyPending(id, { visible: 0 })
+        setGalleryEdit(null)
+        setMessage('Hide staged')
+    }
+
+    const handleGalleryShow = (id: number) => {
+        applyPending(id, { visible: 1 })
+    }
+
+    const handleSaveAll = async () => {
+        if (!authToken || pendingChanges.size === 0) return
+        setIsSaving(true)
+        try {
+            const entries = Array.from(pendingChanges.entries())
+            const reorderIds = entries.find(([, c]) => 'gallery_order' in c) ? galleryList.map(i => i.id) : null
+            const promises: Promise<unknown>[] = []
+            for (const [id, changes] of entries) {
+                const { gallery_order: _go, ...rest } = changes as Record<string, unknown>
+                if (Object.keys(rest).length > 0) {
+                    promises.push(fetch('/api/admin/gallery', {
+                        method: 'PUT', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+                        body: JSON.stringify({ id, ...rest }),
+                    }))
+                }
+            }
+            if (reorderIds) {
+                promises.push(fetch('/api/admin/gallery/reorder', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+                    body: JSON.stringify({ gallery_order: reorderIds }),
+                }))
+            }
+            await Promise.all(promises)
+            setMessage('All changes saved')
+            refreshGallery(); refreshStorage()
+        } catch {
+            setMessage('Save failed')
+        } finally {
+            setIsSaving(false)
+        }
+    }
+
+    const handleDiscard = () => {
+        setGalleryList(snapshotRef.current)
+        setPendingChanges(new Map())
+        setMessage('Changes discarded')
     }
 
     const requestHardDelete = (ids: number[]) => {
@@ -310,38 +367,34 @@ export default function GalleryAdmin() {
         refreshGallery(); refreshStorage()
     }
 
-    const handleGalleryBulk = async (action: 'add_to_carousel' | 'remove_from_carousel' | 'set_event_tag' | 'hide' | 'show' | 'delete') => {
-        if (!authToken || galleryBulkSelected.size === 0) return
+    const handleGalleryBulk = (action: 'add_to_carousel' | 'remove_from_carousel' | 'set_event_tag' | 'hide' | 'show') => {
+        if (galleryBulkSelected.size === 0) return
         const ids = Array.from(galleryBulkSelected)
-        const body: { action: string; ids: number[]; event_tag?: string | null; hard?: boolean } = { action, ids }
-        if (action === 'set_event_tag') body.event_tag = galleryBulkEventTag || null
-        if (action === 'delete') body.hard = false
-        const res = await fetch('/api/admin/gallery/bulk', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
-            body: JSON.stringify(body),
-        })
-        const json = await res.json()
-        if (json.success) { setMessage('Bulk action done'); setGalleryBulkSelected(new Set()); refreshGallery() }
-        else setMessage(json.error || 'Bulk action failed')
+        switch (action) {
+            case 'add_to_carousel': ids.forEach(id => applyPending(id, { show_in_carousel: 1 })); break
+            case 'remove_from_carousel': ids.forEach(id => applyPending(id, { show_in_carousel: 0 })); break
+            case 'set_event_tag': ids.forEach(id => applyPending(id, { event_tag: galleryBulkEventTag || null })); break
+            case 'hide': ids.forEach(id => applyPending(id, { visible: 0 })); break
+            case 'show': ids.forEach(id => applyPending(id, { visible: 1 })); break
+        }
+        setMessage('Change staged')
+        setGalleryBulkSelected(new Set())
     }
 
-    const handleBulkEdit = async () => {
-        if (!authToken || galleryBulkSelected.size === 0) return
+    const handleBulkEdit = () => {
+        if (galleryBulkSelected.size === 0) return
         const ids = Array.from(galleryBulkSelected)
-        const fields: Record<string, string | null | undefined> = {}
+        const fields: Record<string, string | null> = {}
         if (bulkEditFields.event_tag.trim()) fields.event_tag = bulkEditFields.event_tag.trim()
         if (bulkEditFields.caption.trim()) fields.caption = bulkEditFields.caption.trim()
         if (bulkEditFields.alt.trim()) fields.alt = bulkEditFields.alt.trim()
         if (bulkEditFields.date.trim()) fields.date = bulkEditFields.date.trim()
         if (bulkEditFields.taken_at.trim()) fields.taken_at = bulkEditFields.taken_at.trim()
         if (Object.keys(fields).length === 0) { setMessage('No fields to update'); return }
-        const res = await fetch('/api/admin/gallery/bulk', {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
-            body: JSON.stringify({ action: 'edit', ids, fields }),
-        })
-        const json = await res.json()
-        if (json.success) { setMessage(`Updated ${ids.length} items`); setBulkEditOpen(false); setBulkEditFields({ event_tag: '', caption: '', alt: '', date: '', taken_at: '' }); refreshGallery() }
-        else setMessage(json.error || 'Bulk edit failed')
+        ids.forEach(id => applyPending(id, fields))
+        setMessage('Change staged')
+        setBulkEditOpen(false)
+        setBulkEditFields({ event_tag: '', caption: '', alt: '', date: '', taken_at: '' })
     }
 
     const toggleGalleryBulk = (id: number) => {
@@ -359,12 +412,7 @@ export default function GalleryAdmin() {
         reordered.splice(newIndex, 0, moved)
         const updated = reordered.map((item, i) => ({ ...item, gallery_order: i }))
         setGalleryList(updated)
-        if (authToken) {
-            fetch('/api/admin/gallery/reorder', {
-                method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
-                body: JSON.stringify({ gallery_order: updated.map(i => i.id) }),
-            }).catch(() => setMessage('Reorder failed'))
-        }
+        updated.forEach(item => applyPending(item.id, { gallery_order: item.gallery_order }))
     }
 
     // Selection stats
@@ -517,7 +565,7 @@ export default function GalleryAdmin() {
                         <SortableContext items={sortedList.map(i => i.id)} strategy={rectSortingStrategy}>
                             <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
                                 {sortedList.map(item => (
-                                    <SortableCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)}
+                                    <SortableCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)} hasPending={pendingChanges.has(item.id)}
                                         onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} />
                                 ))}
                             </div>
@@ -526,7 +574,7 @@ export default function GalleryAdmin() {
                 ) : (
                     <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
                         {sortedList.map(item => (
-                            <PlainCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)}
+                            <PlainCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)} hasPending={pendingChanges.has(item.id)}
                                 onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} />
                         ))}
                     </div>
@@ -625,6 +673,19 @@ export default function GalleryAdmin() {
                         <div className="flex gap-2 pt-3">
                             <button type="button" onClick={handleBulkEdit} className="bg-blue-600 px-4 py-2 rounded">Apply</button>
                             <button type="button" onClick={() => setBulkEditOpen(false)} className="bg-gray-600 px-4 py-2 rounded">Cancel</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Save / Discard bar */}
+            {pendingChanges.size > 0 && (
+                <div className="fixed top-0 left-0 right-0 bg-yellow-900/90 border-b border-yellow-600 px-4 py-2 z-40 backdrop-blur-sm">
+                    <div className="max-w-5xl mx-auto flex items-center justify-between">
+                        <span className="text-sm font-medium">{pendingChanges.size} unsaved change{pendingChanges.size > 1 ? 's' : ''}</span>
+                        <div className="flex gap-2">
+                            <button type="button" onClick={handleSaveAll} disabled={isSaving} className="bg-green-600 px-4 py-1.5 rounded text-sm font-medium disabled:opacity-50">{isSaving ? 'Saving…' : 'Save all'}</button>
+                            <button type="button" onClick={handleDiscard} disabled={isSaving} className="bg-gray-600 px-4 py-1.5 rounded text-sm disabled:opacity-50">Discard</button>
                         </div>
                     </div>
                 </div>
