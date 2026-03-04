@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useLayoutEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 
 function GalleryCell({ thumb, alt, ratio, onClick }: { thumb: string; alt: string; ratio: number; onClick: () => void }) {
     const [loaded, setLoaded] = useState(false);
@@ -25,6 +25,34 @@ function GalleryCell({ thumb, alt, ratio, onClick }: { thumb: string; alt: strin
             </span>
         </button>
     );
+}
+
+function useColumnCount() {
+    const [cols, setCols] = useState(2);
+    useEffect(() => {
+        const update = () => {
+            const w = window.innerWidth;
+            if (w >= 1024) setCols(4);
+            else if (w >= 640) setCols(3);
+            else setCols(2);
+        };
+        update();
+        window.addEventListener('resize', update);
+        return () => window.removeEventListener('resize', update);
+    }, []);
+    return cols;
+}
+
+function buildColumns<T extends { width: number; height: number }>(items: T[], colCount: number): T[][] {
+    const columns: T[][] = Array.from({ length: colCount }, () => []);
+    const heights = new Array(colCount).fill(0);
+    for (const item of items) {
+        const ratio = item.width && item.height && item.height > 0 ? item.width / item.height : 16 / 9;
+        const shortest = heights.indexOf(Math.min(...heights));
+        columns[shortest].push(item);
+        heights[shortest] += 1 / ratio;
+    }
+    return columns;
 }
 
 interface GalleryItem {
@@ -74,13 +102,17 @@ export default function GalleryClient() {
         setLightboxIndex((i) => (i == null ? null : i >= items.length - 1 ? 0 : i + 1));
     }, [items.length]);
 
+    const colCount = useColumnCount();
+
     const aspectRatio = (item: GalleryItem) => {
         if (item.width && item.height && item.height > 0) return item.width / item.height;
         return 16 / 9;
     };
 
+    const columns = useMemo(() => buildColumns(items, colCount), [items, colCount]);
+
     return (
-        <main className="min-h-screen p-4 md:p-6 max-w-6xl mx-auto">
+        <main className="min-h-screen px-4 md:px-8 lg:px-12 mx-auto max-w-screen-2xl">
             <h1 className="text-3xl font-poiret-one text-center mb-6">Gallery</h1>
 
             {loading && (
@@ -99,15 +131,21 @@ export default function GalleryClient() {
             )}
 
             {!loading && !error && items.length > 0 && (
-                <div className="columns-2 sm:columns-3 lg:columns-4 gap-3">
-                    {items.map((item, index) => (
-                        <div key={item.id} className="break-inside-avoid mb-3">
-                            <GalleryCell
-                                thumb={item.thumbnail_src || item.src}
-                                alt={item.caption || item.alt || ''}
-                                ratio={aspectRatio(item)}
-                                onClick={() => openLightbox(index)}
-                            />
+                <div className="flex gap-3">
+                    {columns.map((col, ci) => (
+                        <div key={ci} className="flex-1 min-w-0 flex flex-col gap-3">
+                            {col.map((item) => {
+                                const flatIndex = items.indexOf(item);
+                                return (
+                                    <GalleryCell
+                                        key={item.id}
+                                        thumb={item.thumbnail_src || item.src}
+                                        alt={item.caption || item.alt || ''}
+                                        ratio={aspectRatio(item)}
+                                        onClick={() => openLightbox(flatIndex)}
+                                    />
+                                );
+                            })}
                         </div>
                     ))}
                 </div>
