@@ -6,14 +6,13 @@ import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import exifReader from 'exif-reader';
 import db from '../../../../../database';
-import { galleryFilePath, publicFileExists } from '../../../../../lib/gallery-utils';
+import { galleryFilePath, publicFileExists, extractVideoPoster } from '../../../../../lib/gallery-utils';
 
 const BEARER = `Bearer ${process.env.ADMIN_PASSWORD}`;
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const ALLOWED_VIDEO_TYPES = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
 const THUMB_MAX_WIDTH = 400;
-const VIDEO_POSTER_TIME_SEC = 3;
 function auth(request: Request): boolean {
     const authHeader = request.headers.get('authorization');
     return !!authHeader && authHeader === BEARER;
@@ -87,22 +86,6 @@ function isVideo(mime: string): boolean {
     return ALLOWED_VIDEO_TYPES.has(mime);
 }
 
-function extractVideoPoster(
-    srcPath: string,
-    thumbPath: string,
-    timeSec: number
-): Promise<void> {
-    return new Promise((resolve, reject) => {
-        ffmpeg(srcPath)
-            .seekInput(timeSec)
-            .outputOptions(['-vframes', '1'])
-            .output(thumbPath)
-            .on('end', () => resolve())
-            .on('error', (err) => reject(err))
-            .run();
-    });
-}
-
 async function getVideoMetadata(filePath: string): Promise<{ width: number; height: number; creationDate: string | null }> {
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(filePath, (err, data) => {
@@ -134,12 +117,12 @@ async function processVideo(
 
     const thumbName = `${baseName}_thumb.jpg`;
     const thumbPath = galleryFilePath(path.join('thumbs', thumbName));
-    let thumbnail_src: string | null = `/media/gallery/thumbs/${thumbName}`;
-    try {
-        await extractVideoPoster(srcPath, thumbPath, VIDEO_POSTER_TIME_SEC);
-    } catch (e) {
-        console.warn('Video poster extraction failed:', e);
-        thumbnail_src = null;
+    let thumbnail_src: string | null = null;
+    const posterOk = await extractVideoPoster(srcPath, thumbPath);
+    if (posterOk) {
+        thumbnail_src = `/media/gallery/thumbs/${thumbName}`;
+    } else {
+        console.warn(`Video poster extraction failed for ${baseName}`);
     }
     let width = 1920;
     let height = 1080;

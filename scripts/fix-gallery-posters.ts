@@ -1,34 +1,15 @@
 /**
  * Fix gallery videos with missing poster (thumbnail_src IS NULL, or thumb file missing on disk).
- * Re-extracts a frame at 3s and updates thumbnail_src.
+ * Re-extracts a frame (tries 3s, 1s, 0s for short videos) and updates thumbnail_src.
  * Run during deploy or manually: npm run fix-posters
  */
 
 import path from 'path';
 import { existsSync } from 'fs';
-import ffmpeg from 'fluent-ffmpeg';
 import db from '../database';
-import { galleryFilePath, resolvePublicPath } from '../lib/gallery-utils';
+import { galleryFilePath, resolvePublicPath, extractVideoPoster } from '../lib/gallery-utils';
 
-const VIDEO_POSTER_TIME_SEC = 3;
-
-function extractVideoPoster(
-    srcPath: string,
-    thumbPath: string,
-    timeSec: number
-): Promise<void> {
-    return new Promise((resolve, reject) => {
-        ffmpeg(srcPath)
-            .seekInput(timeSec)
-            .outputOptions(['-vframes', '1'])
-            .output(thumbPath)
-            .on('end', () => resolve())
-            .on('error', (err) => reject(err))
-            .run();
-    });
-}
-
-function run() {
+async function run() {
     const rows = db
         .prepare(
             `SELECT id, src, thumbnail_src FROM gallery_media
@@ -63,14 +44,14 @@ function run() {
         const baseName = path.basename(row.src, path.extname(row.src));
         const thumbName = `${baseName}_thumb.jpg`;
         const thumbPath = galleryFilePath(path.join('thumbs', thumbName));
-        try {
-            extractVideoPoster(srcPath, thumbPath, VIDEO_POSTER_TIME_SEC);
+        const ok = await extractVideoPoster(srcPath, thumbPath);
+        if (ok) {
             const thumbnail_src = `/media/gallery/thumbs/${thumbName}`;
             updateStmt.run(thumbnail_src, row.id);
             fixed++;
             console.log(`Fixed poster id=${row.id} -> ${thumbnail_src}`);
-        } catch (err) {
-            console.warn(`Skip id=${row.id}: ${err instanceof Error ? err.message : String(err)}`);
+        } else {
+            console.warn(`Skip id=${row.id}: ffmpeg could not extract any frame`);
             skipped++;
         }
     }
@@ -78,4 +59,7 @@ function run() {
     console.log(`fix-gallery-posters: ${fixed} fixed, ${skipped} skipped.`);
 }
 
-run();
+run().catch((err) => {
+    console.error('fix-gallery-posters failed:', err);
+    process.exit(1);
+});
