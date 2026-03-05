@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Metadata } from 'next';
 import GalleryClient from './GalleryClient';
 
@@ -28,5 +29,9 @@ export const metadata: Metadata = {
 };
 
 export default function GalleryPage() {
-    return <GalleryClient />;
+    return (
+        <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><span className="text-gray-400">Loading gallery…</span></div>}>
+            <GalleryClient />
+        </Suspense>
+    );
 }

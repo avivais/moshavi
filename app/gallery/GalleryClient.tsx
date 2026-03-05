@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 
 function GalleryCell({ thumb, alt, ratio, type, onClick }: { thumb: string; alt: string; ratio: number; type: 'photo' | 'video'; onClick: () => void }) {
     const [loaded, setLoaded] = useState(false);
@@ -82,6 +83,7 @@ interface GalleryItem {
 }
 
 export default function GalleryClient() {
+    const searchParams = useSearchParams();
     const [items, setItems] = useState<GalleryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
@@ -112,13 +114,53 @@ export default function GalleryClient() {
         return () => { mounted = false; };
     }, []);
 
-    const openLightbox = useCallback((index: number) => setLightboxIndex(index), []);
-    const closeLightbox = useCallback(() => setLightboxIndex(null), []);
+    const openLightbox = useCallback((index: number) => {
+        setLightboxIndex(index);
+        window.history.pushState({ galleryView: index }, '', `/gallery?view=${index}`);
+    }, []);
+    const closeLightbox = useCallback(() => {
+        setLightboxIndex(null);
+        window.history.replaceState(null, '', '/gallery');
+    }, []);
     const goPrev = useCallback(() => {
-        setLightboxIndex((i) => (i == null ? null : i <= 0 ? items.length - 1 : i - 1));
+        setLightboxIndex((i) => {
+            if (i == null) return null;
+            const next = i <= 0 ? items.length - 1 : i - 1;
+            window.history.pushState({ galleryView: next }, '', `/gallery?view=${next}`);
+            return next;
+        });
     }, [items.length]);
     const goNext = useCallback(() => {
-        setLightboxIndex((i) => (i == null ? null : i >= items.length - 1 ? 0 : i + 1));
+        setLightboxIndex((i) => {
+            if (i == null) return null;
+            const next = i >= items.length - 1 ? 0 : i + 1;
+            window.history.pushState({ galleryView: next }, '', `/gallery?view=${next}`);
+            return next;
+        });
+    }, [items.length]);
+
+    useEffect(() => {
+        const view = searchParams.get('view');
+        if (!loading && items.length > 0 && view !== null && view !== '') {
+            const index = parseInt(view, 10);
+            if (Number.isInteger(index) && index >= 0 && index < items.length) {
+                setLightboxIndex(index);
+                window.history.replaceState({ galleryView: index }, '', `/gallery?view=${index}`);
+            }
+        }
+    }, [loading, items.length, searchParams]);
+
+    useEffect(() => {
+        const onPopState = (e: PopStateEvent) => {
+            const state = e.state as { galleryView?: number } | null;
+            if (state?.galleryView !== undefined && state.galleryView >= 0 && state.galleryView < items.length) {
+                setLightboxIndex(state.galleryView);
+            } else {
+                setLightboxIndex(null);
+            }
+        };
+        window.addEventListener('popstate', onPopState);
+        return () => window.removeEventListener('popstate', onPopState);
     }, [items.length]);
 
     const colCount = useColumnCount(items.length);
