@@ -6,16 +6,18 @@ import Slider from 'react-slick'
 import 'slick-carousel/slick/slick.css'
 import 'slick-carousel/slick/slick-theme.css'
 
-interface CarouselImage {
+interface CarouselItem {
     id: number;
     src: string;
+    thumbnail_src: string | null;
+    type: string;
     alt: string;
     width: number;
     height: number;
 }
 
 export default function HomeClient() {
-    const [images, setImages] = useState<CarouselImage[]>([])
+    const [items, setItems] = useState<CarouselItem[]>([])
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
 
@@ -38,8 +40,8 @@ export default function HomeClient() {
                 if (!res.ok) {
                     throw new Error(`Fetch failed: ${res.status} ${res.statusText}`);
                 }
-                const data: CarouselImage[] = await res.json();
-                setImages(data);
+                const data: CarouselItem[] = await res.json();
+                setItems(data);
             } catch (err: unknown) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to load images';
                 console.error('Fetch error:', errorMessage);
@@ -55,7 +57,7 @@ export default function HomeClient() {
         <main className="min-h-screen flex flex-col items-center p-0">
             <section className="mb-4 text-center px-4 font-poiret-one">
                 <div className="text-3xl">MoshAvi #007</div>
-                <div className="text-xl">5.3.2026</div>
+                <div className="text-xl">12.3.2026</div>
                 <div className="text-lg font-bonheur-royale">Music Is The Answer</div>
             </section>
 
@@ -66,19 +68,24 @@ export default function HomeClient() {
                             <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin" aria-hidden="true" />
                             <span className="sr-only">Loading carousel</span>
                         </div>
-                    ) : images.length > 0 ? (
+                    ) : items.length > 0 ? (
                         <Slider {...carouselSettings}>
-                            {images.map((image) => (
-                                <div key={image.src} className="focus-within:ring-2 focus-within:ring-white focus-within:ring-offset-2 focus-within:ring-offset-black rounded-lg">
-                                    <Image
-                                        src={image.src}
-                                        alt={image.alt}
-                                        width={image.width}
-                                        height={image.height}
-                                        className="w-full h-auto object-cover rounded-lg"
-                                    />
-                                </div>
-                            ))}
+                            {items.map((item) => {
+                                const displaySrc = item.type === 'video' ? (item.thumbnail_src || item.src) : item.src;
+                                return (
+                                    <div key={item.id} className="focus-within:ring-2 focus-within:ring-white focus-within:ring-offset-2 focus-within:ring-offset-black rounded-lg overflow-hidden">
+                                        <div className="relative w-full aspect-[4/3] bg-gray-900">
+                                            <Image
+                                                src={displaySrc}
+                                                alt={item.alt}
+                                                fill
+                                                className="object-cover rounded-lg"
+                                                sizes="(max-width: 768px) 100vw, 672px"
+                                            />
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </Slider>
                     ) : (
                         <div className="text-center py-8 px-4">
