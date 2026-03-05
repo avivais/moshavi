@@ -6,12 +6,12 @@ export async function GET() {
     try {
         const rows = db
             .prepare(
-                `SELECT id, thumbnail_src, src, type, caption, alt, date, event_tag, width, height
+                `SELECT id, thumbnail_src, src, type, caption, alt, date, event_tag, width, height, duration
                  FROM gallery_media
                  WHERE visible = 1 AND src IS NOT NULL AND TRIM(src) != ''
                  ORDER BY gallery_order ASC, created_at DESC, id ASC`
             )
-            .all() as Array<{ id: number; thumbnail_src: string | null; src: string; type: string; caption: string; alt: string; date: string; event_tag: string | null; width: number; height: number }>;
+            .all() as Array<{ id: number; thumbnail_src: string | null; src: string; type: string; caption: string; alt: string; date: string; event_tag: string | null; width: number; height: number; duration: number | null }>;
         const list = rows.filter((row) => {
             const filePath = resolvePublicPath(row.src);
             const exists = filePath !== null && existsSync(filePath);

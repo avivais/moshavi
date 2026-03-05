@@ -124,8 +124,38 @@ function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHid
     )
 }
 
+type Toast = { id: number; text: string; type: 'success' | 'error' }
+
+function ToastOverlay({ toasts, onDismiss }: { toasts: Toast[]; onDismiss: (id: number) => void }) {
+    if (toasts.length === 0) return null
+    return (
+        <div className="fixed top-16 left-1/2 -translate-x-1/2 z-[200] flex flex-col gap-2 pointer-events-none">
+            {toasts.map(t => (
+                <div key={t.id}
+                    className={`pointer-events-auto flex items-center gap-3 px-5 py-3 rounded-lg shadow-lg text-sm font-medium animate-[slideDown_0.25s_ease-out] ${
+                        t.type === 'success' ? 'bg-emerald-600 text-white' : 'bg-red-600 text-white'
+                    }`}
+                >
+                    <span>{t.type === 'success' ? '✓' : '✗'}</span>
+                    <span>{t.text}</span>
+                    <button type="button" onClick={() => onDismiss(t.id)} className="ml-2 opacity-70 hover:opacity-100">×</button>
+                </div>
+            ))}
+        </div>
+    )
+}
+
 export default function GalleryAdmin() {
     const { authToken, isAuthenticated, message, setMessage, logout } = useAdminAuth()
+
+    const [toasts, setToasts] = useState<Toast[]>([])
+    const toastIdRef = useRef(0)
+    const showToast = useCallback((text: string, type: Toast['type'] = 'success') => {
+        const id = ++toastIdRef.current
+        setToasts(prev => [...prev, { id, text, type }])
+        setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 4000)
+    }, [])
+    const dismissToast = useCallback((id: number) => setToasts(prev => prev.filter(t => t.id !== id)), [])
 
     const [galleryList, setGalleryList] = useState<GalleryMedia[]>([])
     const [loading, setLoading] = useState(true)
@@ -384,18 +414,20 @@ export default function GalleryAdmin() {
     const handleFixPoster = async (item: GalleryMedia) => {
         if (!authToken || item.type !== 'video' || fixingPosterId) return
         setFixingPosterId(item.id)
+        showToast(`Extracting poster for #${item.id}…`, 'success')
         try {
             const res = await fetch(`/api/admin/gallery/${item.id}/poster`, { method: 'POST', headers: { 'Authorization': authToken } })
             const json = await res.json()
             if (!res.ok) {
-                setMessage(json.error || 'Fix poster failed')
+                showToast(json.error || `Fix poster #${item.id} failed`, 'error')
                 return
             }
-            setGalleryList(prev => prev.map(i => i.id === item.id ? { ...i, thumbnail_src: json.thumbnail_src } : i))
-            snapshotRef.current = snapshotRef.current.map(i => i.id === item.id ? { ...i, thumbnail_src: json.thumbnail_src } : i)
-            setMessage('Poster updated')
+            const cacheBusted = `${json.thumbnail_src}?t=${Date.now()}`
+            setGalleryList(prev => prev.map(i => i.id === item.id ? { ...i, thumbnail_src: cacheBusted } : i))
+            snapshotRef.current = snapshotRef.current.map(i => i.id === item.id ? { ...i, thumbnail_src: cacheBusted } : i)
+            showToast(`Poster for #${item.id} updated`, 'success')
         } catch {
-            setMessage('Fix poster failed')
+            showToast(`Fix poster #${item.id} failed`, 'error')
         } finally {
             setFixingPosterId(null)
         }
@@ -431,8 +463,7 @@ export default function GalleryAdmin() {
             } else {
                 setMessage('All changes saved')
             }
-            snapshotRef.current = galleryList
-            setPendingChanges(new Map())
+            refreshGallery()
             refreshStorage()
         } catch {
             setMessage('Save failed')
@@ -577,6 +608,7 @@ export default function GalleryAdmin() {
 
     return (
         <div className="p-4 max-w-5xl mx-auto bg-gray-900 text-white rounded-lg">
+            <ToastOverlay toasts={toasts} onDismiss={dismissToast} />
             <div className="flex items-center justify-between mb-4">
                 <h1 className="text-2xl font-bold">Gallery Admin</h1>
                 <div className="flex items-center gap-3">

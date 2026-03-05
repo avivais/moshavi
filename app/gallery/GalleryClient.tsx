@@ -7,7 +7,14 @@ import { useSearchParams } from 'next/navigation';
 const VIDEO_PLACEHOLDER =
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect fill='%231f2937' width='1' height='1'/%3E%3C/svg%3E";
 
-function GalleryCell({ thumb, alt, ratio, type, onClick }: { thumb: string; alt: string; ratio: number; type: 'photo' | 'video'; onClick: () => void }) {
+function formatDur(sec?: number | null): string {
+    if (sec == null || sec <= 0) return '';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function GalleryCell({ thumb, alt, ratio, type, duration, onClick }: { thumb: string; alt: string; ratio: number; type: 'photo' | 'video'; duration?: number | null; onClick: () => void }) {
     const [loaded, setLoaded] = useState(false);
     return (
         <button
@@ -29,13 +36,18 @@ function GalleryCell({ thumb, alt, ratio, type, onClick }: { thumb: string; alt:
                     onLoad={() => setLoaded(true)}
                 />
                 {type === 'video' && (
-                    <span className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
-                        <span className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-black/50 flex items-center justify-center ring-2 ring-white/80">
-                            <svg className="w-6 h-6 md:w-7 md:h-7 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                <path d="M8 5v14l11-7z" />
-                            </svg>
+                    <>
+                        <span className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+                            <span className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-black/50 flex items-center justify-center ring-2 ring-white/80">
+                                <svg className="w-6 h-6 md:w-7 md:h-7 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M8 5v14l11-7z" />
+                                </svg>
+                            </span>
                         </span>
-                    </span>
+                        {formatDur(duration) && (
+                            <span className="absolute bottom-1.5 right-1.5 bg-black/70 text-white text-xs px-1.5 py-0.5 rounded pointer-events-none">{formatDur(duration)}</span>
+                        )}
+                    </>
                 )}
                 <span className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors duration-200 pointer-events-none" aria-hidden="true" />
             </span>
@@ -84,6 +96,7 @@ interface GalleryItem {
     event_tag: string | null;
     width: number;
     height: number;
+    duration: number | null;
 }
 
 export default function GalleryClient() {
@@ -212,6 +225,7 @@ export default function GalleryClient() {
                                         alt={item.caption || item.alt || ''}
                                         ratio={aspectRatio(item)}
                                         type={item.type}
+                                        duration={item.duration}
                                         onClick={() => openLightbox(flatIndex)}
                                     />
                                 );

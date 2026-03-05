@@ -92,6 +92,11 @@
     padding: 0 !important;
 }
 
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 /* Ensure dark-mode consistency (already set in layout.tsx, but for completeness) */
 body {
     background-color: #000000;

@@ -1,44 +1,52 @@
 /**
- * Fix gallery videos with missing poster (thumbnail_src IS NULL, or thumb file missing on disk).
- * Re-extracts a frame (tries 3s, 1s, 0s for short videos) and updates thumbnail_src.
+ * Fix gallery videos:
+ * 1. Re-extract poster for videos with missing/broken thumbnail
+ * 2. Backfill duration for videos with null duration
  * Run during deploy or manually: npm run fix-posters
  */
 
 import path from 'path';
 import { existsSync } from 'fs';
+import ffmpeg from 'fluent-ffmpeg';
 import db from '../database';
 import { galleryFilePath, resolvePublicPath, extractVideoPoster } from '../lib/gallery-utils';
 
+function getVideoDuration(filePath: string): Promise<number | null> {
+    return new Promise((resolve) => {
+        ffmpeg.ffprobe(filePath, (err, data) => {
+            if (err) return resolve(null);
+            const dur = data.format?.duration;
+            resolve(typeof dur === 'number' ? dur : null);
+        });
+    });
+}
+
 async function run() {
-    const rows = db
+    const allVideos = db
         .prepare(
-            `SELECT id, src, thumbnail_src FROM gallery_media
+            `SELECT id, src, thumbnail_src, duration FROM gallery_media
              WHERE type = 'video'
              AND src IS NOT NULL AND TRIM(src) != ''`
         )
-        .all() as Array<{ id: number; src: string; thumbnail_src: string | null }>;
+        .all() as Array<{ id: number; src: string; thumbnail_src: string | null; duration: number | null }>;
 
-    const needFix = rows.filter((row) => {
+    // --- Fix posters ---
+    const needPoster = allVideos.filter((row) => {
         const hasValidThumb = row.thumbnail_src != null && row.thumbnail_src.trim() !== '';
         if (!hasValidThumb) return true;
         const thumbPath = resolvePublicPath(row.thumbnail_src!);
         return !thumbPath || !existsSync(thumbPath);
     });
 
-    if (needFix.length === 0) {
-        console.log('No gallery videos missing poster. Done.');
-        return;
-    }
+    const updateThumb = db.prepare('UPDATE gallery_media SET thumbnail_src = ? WHERE id = ?');
+    let posterFixed = 0;
+    let posterSkipped = 0;
 
-    const updateStmt = db.prepare('UPDATE gallery_media SET thumbnail_src = ? WHERE id = ?');
-    let fixed = 0;
-    let skipped = 0;
-
-    for (const row of needFix) {
+    for (const row of needPoster) {
         const srcPath = resolvePublicPath(row.src);
         if (!srcPath || !existsSync(srcPath)) {
-            console.warn(`Skip id=${row.id}: video file not found ${row.src}`);
-            skipped++;
+            console.warn(`Poster skip id=${row.id}: video not found`);
+            posterSkipped++;
             continue;
         }
         const baseName = path.basename(row.src, path.extname(row.src));
@@ -46,17 +54,32 @@ async function run() {
         const thumbPath = galleryFilePath(path.join('thumbs', thumbName));
         const ok = await extractVideoPoster(srcPath, thumbPath);
         if (ok) {
-            const thumbnail_src = `/media/gallery/thumbs/${thumbName}`;
-            updateStmt.run(thumbnail_src, row.id);
-            fixed++;
-            console.log(`Fixed poster id=${row.id} -> ${thumbnail_src}`);
+            updateThumb.run(`/media/gallery/thumbs/${thumbName}`, row.id);
+            posterFixed++;
+            console.log(`Fixed poster id=${row.id}`);
         } else {
-            console.warn(`Skip id=${row.id}: ffmpeg could not extract any frame`);
-            skipped++;
+            console.warn(`Poster skip id=${row.id}: extraction failed`);
+            posterSkipped++;
         }
     }
+    console.log(`Posters: ${posterFixed} fixed, ${posterSkipped} skipped.`);
 
-    console.log(`fix-gallery-posters: ${fixed} fixed, ${skipped} skipped.`);
+    // --- Backfill duration ---
+    const needDuration = allVideos.filter((row) => row.duration == null);
+    const updateDur = db.prepare('UPDATE gallery_media SET duration = ? WHERE id = ?');
+    let durFilled = 0;
+
+    for (const row of needDuration) {
+        const srcPath = resolvePublicPath(row.src);
+        if (!srcPath || !existsSync(srcPath)) continue;
+        const dur = await getVideoDuration(srcPath);
+        if (dur != null) {
+            updateDur.run(dur, row.id);
+            durFilled++;
+        }
+    }
+    if (durFilled > 0) console.log(`Duration: backfilled ${durFilled} videos.`);
+    else if (needDuration.length === 0) console.log('Duration: all videos have duration.');
 }
 
 run().catch((err) => {
