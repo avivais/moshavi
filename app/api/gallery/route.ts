@@ -12,11 +12,15 @@ export async function GET() {
                  ORDER BY gallery_order ASC, created_at DESC, id ASC`
             )
             .all() as Array<{ id: number; thumbnail_src: string | null; src: string; type: string; caption: string; alt: string; date: string; event_tag: string | null; width: number; height: number }>;
-        // Only return items whose main media file exists on disk (avoids ghost placeholders from failed/missing uploads)
         const list = rows.filter((row) => {
             const filePath = resolvePublicPath(row.src);
-            return filePath !== null && existsSync(filePath);
+            const exists = filePath !== null && existsSync(filePath);
+            if (!exists) {
+                console.warn('[gallery-get] missing file', { id: row.id, src: row.src, resolved: filePath, cwd: process.cwd() });
+            }
+            return exists;
         });
+        console.log('[gallery-get] cwd=', process.cwd(), 'total=', rows.length, 'withFile=', list.length);
         return NextResponse.json(list);
     } catch (error) {
         console.error('Gallery API GET error:', error);

@@ -22,3 +22,9 @@ export function publicFileExists(relativePath: string): boolean {
     const filePath = resolvePublicPath(relativePath);
     return filePath !== null && existsSync(filePath);
 }
+
+/** Absolute path for a file under public/media/gallery (for upload writes). Same base as resolvePublicPath. */
+export function galleryFilePath(filename: string): string {
+    const root = process.cwd();
+    return path.join(root, 'public', 'media', 'gallery', filename);
+}

@@ -607,52 +607,44 @@ export default function GalleryAdmin() {
                 </div>
             )}
 
-            {/* Broken media: DB rows whose files are missing */}
-            {brokenItems.length > 0 && (
-                <div className="mb-6 p-4 bg-red-900/30 border border-red-700 rounded-lg">
-                    <h2 className="text-sm font-bold mb-2 text-red-300">Broken media ({brokenItems.length})</h2>
-                    <p className="text-xs text-gray-400 mb-3">These rows reference missing files and can cause ghost placeholders. Remove them to clean the gallery.</p>
-                    <ul className="text-xs text-gray-300 mb-3 space-y-1 max-h-32 overflow-y-auto">
-                        {brokenItems.map(b => (
-                            <li key={b.id} className="truncate">
-                                #{b.id} · {b.type} · {b.src} {b.caption ? `· "${b.caption.slice(0, 40)}${b.caption.length > 40 ? '…' : ''}"` : ''}
-                            </li>
-                        ))}
-                    </ul>
-                    <button
-                        type="button"
-                        onClick={handleCleanupBroken}
-                        disabled={cleaningUpBroken}
-                        className="bg-red-600 hover:bg-red-700 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium"
-                    >
-                        {cleaningUpBroken ? 'Removing…' : `Remove ${brokenItems.length} broken row(s)`}
-                    </button>
-                </div>
-            )}
-
-            {/* Duplicate media: same content_hash (e.g. re-uploads); cleanup keeps oldest per group */}
-            {duplicateGroups.length > 0 && (
-                <div className="mb-6 p-4 bg-amber-900/30 border border-amber-700 rounded-lg">
-                    <h2 className="text-sm font-bold mb-2 text-amber-300">Duplicate media ({duplicateGroups.length} group{duplicateGroups.length !== 1 ? 's' : ''})</h2>
-                    <p className="text-xs text-gray-400 mb-3">These items have identical file content (same hash). Clean up keeps the oldest per group and removes the rest (and their files).</p>
-                    <ul className="text-xs text-gray-300 mb-3 space-y-2 max-h-40 overflow-y-auto">
-                        {duplicateGroups.map((g, i) => (
-                            <li key={g.content_hash} className="flex items-center gap-2">
-                                {g.thumbnail_src && <img src={g.thumbnail_src} alt="" className="w-8 h-8 object-cover rounded flex-shrink-0" />}
-                                <span>Group {i + 1}: {g.count} item(s) · IDs {g.ids.join(', ')} {g.caption_preview ? `· "${g.caption_preview}${g.caption_preview.length >= 60 ? '…' : ''}"` : ''}</span>
-                            </li>
-                        ))}
-                    </ul>
-                    <button
-                        type="button"
-                        onClick={handleCleanupDuplicates}
-                        disabled={cleaningUpDuplicates}
-                        className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium"
-                    >
-                        {cleaningUpDuplicates ? 'Removing…' : `Clean up duplicates (keep oldest per group)`}
-                    </button>
-                </div>
-            )}
+            {/* Maintenance: always visible so you can see Broken/Duplicate status and run cleanup */}
+            <div className="mb-6 p-4 bg-gray-800 rounded-lg">
+                <h2 className="text-sm font-bold mb-2 text-gray-400">Maintenance</h2>
+                <p className="text-xs text-gray-500 mb-2">
+                    Broken: <span className={brokenItems.length > 0 ? 'text-red-400 font-medium' : 'text-gray-400'}>{brokenItems.length}</span>
+                    {' · '}
+                    Duplicates: <span className={duplicateGroups.length > 0 ? 'text-amber-400 font-medium' : 'text-gray-400'}>{duplicateGroups.length} group{duplicateGroups.length !== 1 ? 's' : ''}</span>
+                </p>
+                {brokenItems.length > 0 && (
+                    <div className="mb-4 p-3 bg-red-900/30 border border-red-700 rounded">
+                        <p className="text-xs text-gray-400 mb-2">These rows reference missing files. Remove them to clean the gallery.</p>
+                        <ul className="text-xs text-gray-300 mb-2 space-y-1 max-h-32 overflow-y-auto">
+                            {brokenItems.map(b => (
+                                <li key={b.id} className="truncate">#{b.id} · {b.type} · {b.src}</li>
+                            ))}
+                        </ul>
+                        <button type="button" onClick={handleCleanupBroken} disabled={cleaningUpBroken} className="bg-red-600 hover:bg-red-700 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium">
+                            {cleaningUpBroken ? 'Removing…' : `Remove ${brokenItems.length} broken row(s)`}
+                        </button>
+                    </div>
+                )}
+                {duplicateGroups.length > 0 && (
+                    <div className="p-3 bg-amber-900/30 border border-amber-700 rounded">
+                        <p className="text-xs text-gray-400 mb-2">Same file content (hash). Clean up keeps oldest per group.</p>
+                        <ul className="text-xs text-gray-300 mb-2 space-y-1 max-h-32 overflow-y-auto">
+                            {duplicateGroups.map((g, i) => (
+                                <li key={g.content_hash}>Group {i + 1}: {g.count} item(s) · IDs {g.ids.join(', ')}</li>
+                            ))}
+                        </ul>
+                        <button type="button" onClick={handleCleanupDuplicates} disabled={cleaningUpDuplicates} className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium">
+                            {cleaningUpDuplicates ? 'Removing…' : 'Clean up duplicates (keep oldest per group)'}
+                        </button>
+                    </div>
+                )}
+                {brokenItems.length === 0 && duplicateGroups.length === 0 && (
+                    <p className="text-xs text-gray-500">No broken or duplicate items. Uploads write to the same paths the gallery checks; if images still don’t load, check server logs for [gallery-upload] and [gallery-get].</p>
+                )}
+            </div>
 
             {/* Filter bar */}
             {galleryList.length > 0 && (

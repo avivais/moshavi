@@ -39,6 +39,9 @@ export async function GET(request: Request) {
             )
             .all() as GalleryRow[];
         const broken = rows.filter((row) => !publicFileExists(row.src));
+        if (broken.length > 0) {
+            console.warn('[gallery-broken] count=', broken.length, 'ids=', broken.map((r) => r.id), 'cwd=', process.cwd());
+        }
         return NextResponse.json({ items: broken });
     } catch (error) {
         console.error('Broken gallery GET error:', error);

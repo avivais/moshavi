@@ -6,6 +6,7 @@ import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import exifReader from 'exif-reader';
 import db from '../../../../../database';
+import { galleryFilePath, publicFileExists } from '../../../../../lib/gallery-utils';
 
 const BEARER = `Bearer ${process.env.ADMIN_PASSWORD}`;
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
@@ -13,53 +14,29 @@ const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const ALLOWED_VIDEO_TYPES = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
 const THUMB_MAX_WIDTH = 400;
 const VIDEO_POSTER_TIME_SEC = 3;
-const GALLERY_DIR = 'public/media/gallery';
-const THUMBS_DIR = 'public/media/gallery/thumbs';
-
 function auth(request: Request): boolean {
     const authHeader = request.headers.get('authorization');
     return !!authHeader && authHeader === BEARER;
 }
-
-function getExt(mime: string): string {
-    const map: Record<string, string> = {
-        'image/jpeg': '.jpg',
-        'image/png': '.png',
-        'image/webp': '.webp',
-        'video/mp4': '.mp4',
-        'video/webm': '.webm',
-        'video/quicktime': '.mov',
-    };
-    return map[mime] || '';
-}
-
-function isImage(mime: string): boolean {
-    return ALLOWED_IMAGE_TYPES.has(mime);
-}
-function isVideo(mime: string): boolean {
-    return ALLOWED_VIDEO_TYPES.has(mime);
-}
-
 async function ensureDirs(): Promise<void> {
-    const root = process.cwd();
-    await mkdir(path.join(root, GALLERY_DIR), { recursive: true });
-    await mkdir(path.join(root, THUMBS_DIR), { recursive: true });
+    const base = path.join(process.cwd(), 'public', 'media', 'gallery');
+    await mkdir(path.join(base, 'thumbs'), { recursive: true });
 }
 
 async function processImage(
     buffer: Buffer,
     mime: string,
     baseName: string,
-    root: string
+    _root: string
 ): Promise<{ src: string; thumbnail_src: string; width: number; height: number; takenAt: string | null; fileSize: number }> {
     const ext = getExt(mime);
-    const srcPath = path.join(root, GALLERY_DIR, baseName + ext);
+    const srcPath = galleryFilePath(baseName + ext);
     await writeFile(srcPath, buffer);
 
     const fileSize = (await stat(srcPath)).size;
 
     const thumbName = `${baseName}_thumb${ext}`;
-    const thumbPath = path.join(root, THUMBS_DIR, thumbName);
+    const thumbPath = galleryFilePath(path.join('thumbs', thumbName));
     const meta = await sharp(buffer)
         .resize(THUMB_MAX_WIDTH, undefined, { withoutEnlargement: true })
         .toFile(thumbPath);
@@ -90,6 +67,25 @@ async function processImage(
         takenAt,
         fileSize,
     };
+}
+
+function getExt(mime: string): string {
+    const map: Record<string, string> = {
+        'image/jpeg': '.jpg',
+        'image/png': '.png',
+        'image/webp': '.webp',
+        'video/mp4': '.mp4',
+        'video/webm': '.webm',
+        'video/quicktime': '.mov',
+    };
+    return map[mime] || '';
+}
+
+function isImage(mime: string): boolean {
+    return ALLOWED_IMAGE_TYPES.has(mime);
+}
+function isVideo(mime: string): boolean {
+    return ALLOWED_VIDEO_TYPES.has(mime);
 }
 
 function extractVideoPoster(
@@ -130,16 +126,16 @@ async function processVideo(
     buffer: Buffer,
     mime: string,
     baseName: string,
-    root: string
+    _root: string
 ): Promise<{ src: string; thumbnail_src: string | null; width: number; height: number; takenAt: string | null; fileSize: number }> {
     const ext = getExt(mime);
-    const srcPath = path.join(root, GALLERY_DIR, baseName + ext);
+    const srcPath = galleryFilePath(baseName + ext);
     await writeFile(srcPath, buffer);
 
     const fileSize = (await stat(srcPath)).size;
 
     const thumbName = `${baseName}_thumb.jpg`;
-    const thumbPath = path.join(root, THUMBS_DIR, thumbName);
+    const thumbPath = galleryFilePath(path.join('thumbs', thumbName));
     let thumbnail_src: string | null = `/media/gallery/thumbs/${thumbName}`;
     try {
         await extractVideoPoster(srcPath, thumbPath, VIDEO_POSTER_TIME_SEC);
@@ -196,6 +192,7 @@ export async function POST(request: Request) {
         }
 
         const root = process.cwd();
+        console.log('[gallery-upload] cwd=', root);
         const maxOrderRow = db.prepare('SELECT COALESCE(MAX(gallery_order), -1) + 1 AS next_order FROM gallery_media').get() as { next_order: number };
         let nextOrder = maxOrderRow.next_order;
 
@@ -255,6 +252,13 @@ export async function POST(request: Request) {
                 width: number;
                 height: number;
             };
+            const mainExists = publicFileExists(row.src);
+            const thumbExists = row.thumbnail_src ? publicFileExists(row.thumbnail_src) : false;
+            if (!mainExists || !thumbExists) {
+                console.warn('[gallery-upload] path check failed after write', { id: row.id, src: row.src, mainExists, thumbExists });
+            } else {
+                console.log('[gallery-upload] wrote id=', row.id, 'src=', row.src);
+            }
             results.push(row);
         }
 
