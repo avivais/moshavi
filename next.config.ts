@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  async rewrites() {
+    return [
+      { source: "/media/gallery/:path*", destination: "/api/media/gallery/:path*" },
+    ];
+  },
   async headers() {
     return [
       {
