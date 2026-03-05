@@ -8,6 +8,9 @@ import { useAdminAuth } from '../hooks/useAdminAuth'
 import type { GalleryMedia } from '../types'
 import { formatFileSize } from '../../../lib/format'
 
+// Placeholder for video thumb when thumbnail_src is missing (avoid broken <img> with video URL)
+const VIDEO_PLACEHOLDER = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect fill='%231f2937' width='1' height='1'/%3E%3C/svg%3E"
+
 type SortOption = 'manual' | 'created_at_desc' | 'created_at_asc' | 'taken_at_desc' | 'taken_at_asc' | 'file_size_desc' | 'file_size_asc' | 'caption_asc' | 'caption_desc' | 'alt_asc' | 'alt_desc' | 'event_tag_asc' | 'event_tag_desc' | 'id_desc' | 'id_asc'
 
 const SORT_OPTIONS: { value: SortOption; label: string }[] = [
@@ -62,26 +65,26 @@ function SortableCard({ item, isSelected, hasPending, onToggleSelect, onEdit, on
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
     return (
-        <div ref={setNodeRef} style={style} className={`border rounded overflow-hidden ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+        <div ref={setNodeRef} style={style} className={`border rounded overflow-hidden flex flex-col ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
             <div className="flex items-center gap-1 p-1 bg-gray-700" {...attributes} {...listeners}>
                 <input type="checkbox" checked={isSelected} onChange={onToggleSelect} onClick={e => e.stopPropagation()} className="rounded" />
                 <span className="text-xs truncate flex-1 cursor-grab">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
             </div>
-            <div className="aspect-square bg-gray-900 relative group/card">
-                {(item.thumbnail_src || item.src) && <img src={item.thumbnail_src || item.src} alt={item.alt || ''} className="w-full h-full object-cover" />}
+            <div className="aspect-square bg-gray-900 relative group/card flex-shrink-0">
+                {(item.thumbnail_src || item.src) && <img src={item.type === 'video' && !(item.thumbnail_src?.trim()) ? VIDEO_PLACEHOLDER : (item.thumbnail_src || item.src)} alt={item.alt || ''} className="w-full h-full object-cover" />}
                 {item.show_in_carousel ? <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span> : null}
                 {!item.visible && <span className="absolute top-1 left-1 bg-red-600 text-white text-xs px-1 rounded">Hidden</span>}
                 {item.src && <div className="hidden group-hover/card:block absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none"><img src={item.src} alt="" className="max-w-[300px] max-h-[300px] object-contain rounded shadow-lg border border-gray-600" /></div>}
             </div>
-            <div className="p-1 text-xs space-y-0.5">
+            <div className="p-1 text-xs space-y-0.5 flex-1 min-h-[3.25rem]">
                 <div className="truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
                 {item.created_at && <div className="text-gray-500 truncate" title={item.created_at}>Up: {formatDate(item.created_at)}</div>}
                 {item.taken_at && <div className="text-gray-500 truncate" title={item.taken_at}>At: {formatDate(item.taken_at)}</div>}
             </div>
-            <div className="p-1 flex flex-wrap gap-1">
+            <div className="p-1 flex flex-wrap gap-1 flex-shrink-0">
                 <button type="button" onClick={onEdit} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
                 <button type="button" onClick={onHide} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
-                {item.type === 'video' && !item.thumbnail_src && onFixPoster && (
+                {item.type === 'video' && onFixPoster && (
                     <button type="button" onClick={onFixPoster} className="bg-emerald-600 px-2 py-0.5 rounded text-xs">Fix poster</button>
                 )}
             </div>
@@ -93,26 +96,26 @@ function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHid
     item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void; onFixPoster?: () => void
 }) {
     return (
-        <div className={`border rounded overflow-hidden ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
-            <label className="flex items-center gap-1 p-1 bg-gray-700">
+        <div className={`border rounded overflow-hidden flex flex-col ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+            <label className="flex items-center gap-1 p-1 bg-gray-700 flex-shrink-0">
                 <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="rounded" />
                 <span className="text-xs truncate">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
             </label>
-            <div className="aspect-square bg-gray-900 relative group/card">
-                {(item.thumbnail_src || item.src) && <img src={item.thumbnail_src || item.src} alt={item.alt || ''} className="w-full h-full object-cover" />}
+            <div className="aspect-square bg-gray-900 relative group/card flex-shrink-0">
+                {(item.thumbnail_src || item.src) && <img src={item.type === 'video' && !(item.thumbnail_src?.trim()) ? VIDEO_PLACEHOLDER : (item.thumbnail_src || item.src)} alt={item.alt || ''} className="w-full h-full object-cover" />}
                 {item.show_in_carousel ? <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span> : null}
                 {!item.visible && <span className="absolute top-1 left-1 bg-red-600 text-white text-xs px-1 rounded">Hidden</span>}
                 {item.src && <div className="hidden group-hover/card:block absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none"><img src={item.src} alt="" className="max-w-[300px] max-h-[300px] object-contain rounded shadow-lg border border-gray-600" /></div>}
             </div>
-            <div className="p-1 text-xs space-y-0.5">
+            <div className="p-1 text-xs space-y-0.5 flex-1 min-h-[3.25rem]">
                 <div className="truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
                 {item.created_at && <div className="text-gray-500 truncate" title={item.created_at}>Up: {formatDate(item.created_at)}</div>}
                 {item.taken_at && <div className="text-gray-500 truncate" title={item.taken_at}>At: {formatDate(item.taken_at)}</div>}
             </div>
-            <div className="p-1 flex flex-wrap gap-1">
+            <div className="p-1 flex flex-wrap gap-1 flex-shrink-0">
                 <button type="button" onClick={onEdit} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
                 <button type="button" onClick={onHide} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
-                {item.type === 'video' && !item.thumbnail_src && onFixPoster && (
+                {item.type === 'video' && onFixPoster && (
                     <button type="button" onClick={onFixPoster} className="bg-emerald-600 px-2 py-0.5 rounded text-xs">Fix poster</button>
                 )}
             </div>

@@ -1,5 +1,5 @@
 /**
- * Fix gallery videos with missing poster (thumbnail_src IS NULL).
+ * Fix gallery videos with missing poster (thumbnail_src IS NULL, or thumb file missing on disk).
  * Re-extracts a frame at 3s and updates thumbnail_src.
  * Run during deploy or manually: npm run fix-posters
  */
@@ -31,14 +31,20 @@ function extractVideoPoster(
 function run() {
     const rows = db
         .prepare(
-            `SELECT id, src FROM gallery_media
+            `SELECT id, src, thumbnail_src FROM gallery_media
              WHERE type = 'video'
-             AND (thumbnail_src IS NULL OR TRIM(COALESCE(thumbnail_src, '')) = '')
              AND src IS NOT NULL AND TRIM(src) != ''`
         )
-        .all() as Array<{ id: number; src: string }>;
+        .all() as Array<{ id: number; src: string; thumbnail_src: string | null }>;
 
-    if (rows.length === 0) {
+    const needFix = rows.filter((row) => {
+        const hasValidThumb = row.thumbnail_src != null && row.thumbnail_src.trim() !== '';
+        if (!hasValidThumb) return true;
+        const thumbPath = resolvePublicPath(row.thumbnail_src!);
+        return !thumbPath || !existsSync(thumbPath);
+    });
+
+    if (needFix.length === 0) {
         console.log('No gallery videos missing poster. Done.');
         return;
     }
@@ -47,7 +53,7 @@ function run() {
     let fixed = 0;
     let skipped = 0;
 
-    for (const row of rows) {
+    for (const row of needFix) {
         const srcPath = resolvePublicPath(row.src);
         if (!srcPath || !existsSync(srcPath)) {
             console.warn(`Skip id=${row.id}: video file not found ${row.src}`);
