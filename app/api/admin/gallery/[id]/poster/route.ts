@@ -41,7 +41,7 @@ export async function POST(
         if (!ok) {
             return NextResponse.json({ error: 'Could not extract poster (video may be too short or corrupt)' }, { status: 500 });
         }
-        const thumbnail_src = `/media/gallery/thumbs/${thumbName}`;
+        const thumbnail_src = `/media/gallery/thumbs/${thumbName}?v=${Date.now()}`;
         db.prepare('UPDATE gallery_media SET thumbnail_src = ? WHERE id = ?').run(thumbnail_src, idNum);
         return NextResponse.json({ thumbnail_src });
     } catch (err) {

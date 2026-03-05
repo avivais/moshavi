@@ -75,6 +75,12 @@ export type YoutubeSyncApplyData = z.infer<typeof youtubeSyncApplySchema>;
 const safeString = z.string().max(2000).optional().default('');
 const safeStringNullable = z.string().max(500).optional().nullable();
 
+/** Coerce 0/1 or boolean to boolean for PUT (client sends numbers). */
+const optionalBooleanOrNumber = z
+  .union([z.boolean(), z.literal(0), z.literal(1)])
+  .transform((v) => v === true || v === 1)
+  .optional();
+
 /** Gallery create/update item payload */
 export const galleryMediaDataSchema = z.object({
   src: z.string().min(1).max(2000),
@@ -123,10 +129,10 @@ export const galleryPutSchema = z.object({
   date: galleryMediaDataSchema.shape.date.optional(),
   event_tag: galleryMediaDataSchema.shape.event_tag.optional(),
   taken_at: galleryMediaDataSchema.shape.taken_at,
-  show_in_carousel: galleryMediaDataSchema.shape.show_in_carousel.optional(),
+  show_in_carousel: optionalBooleanOrNumber,
   carousel_order: galleryMediaDataSchema.shape.carousel_order.optional(),
   gallery_order: galleryMediaDataSchema.shape.gallery_order.optional(),
-  visible: galleryMediaDataSchema.shape.visible.optional(),
+  visible: optionalBooleanOrNumber,
 });
 
 /** DELETE /api/admin/gallery — soft or hard delete */

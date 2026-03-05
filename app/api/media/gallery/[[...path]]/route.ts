@@ -26,7 +26,10 @@ export async function GET(
         if (!pathSegments?.length) {
             return NextResponse.json({ error: 'Not found' }, { status: 404, headers: NO_CACHE });
         }
-        const relativePath = pathSegments.join('/');
+        const lastSegment = pathSegments[pathSegments.length - 1];
+        const segmentWithoutQuery = typeof lastSegment === 'string' ? lastSegment.replace(/\?.*/, '') : lastSegment;
+        const segments = pathSegments.length === 1 ? [segmentWithoutQuery] : [...pathSegments.slice(0, -1), segmentWithoutQuery];
+        const relativePath = segments.join('/');
         if (relativePath.includes('..') || path.isAbsolute(relativePath)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_CACHE });
         }
@@ -38,6 +41,7 @@ export async function GET(
             return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_CACHE });
         }
         if (!existsSync(resolved)) {
+            console.warn('[media/gallery] file not found:', { resolved, cwd: process.cwd() });
             return NextResponse.json({ error: 'Not found' }, { status: 404, headers: NO_CACHE });
         }
         const st = await stat(resolved);

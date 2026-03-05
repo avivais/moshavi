@@ -8,7 +8,8 @@ import ffmpeg from 'fluent-ffmpeg';
  */
 export function resolvePublicPath(relativePath: string): string | null {
     if (!relativePath || typeof relativePath !== 'string') return null;
-    const trimmed = relativePath.trim().replace(/^\/+/, '');
+    const withoutQuery = relativePath.split('?')[0];
+    const trimmed = withoutQuery.trim().replace(/^\/+/, '');
     if (!trimmed) return null;
     const normalized = path.normalize(trimmed).replace(/^(\.\.(\/|\\|$))+/, '');
     if (normalized.startsWith('..') || path.isAbsolute(normalized)) return null;

@@ -422,7 +422,7 @@ export default function GalleryAdmin() {
                 showToast(json.error || `Fix poster #${item.id} failed`, 'error')
                 return
             }
-            const cacheBusted = `${json.thumbnail_src}?t=${Date.now()}`
+            const cacheBusted = json.thumbnail_src.includes('?') ? `${json.thumbnail_src}&t=${Date.now()}` : `${json.thumbnail_src}?t=${Date.now()}`;
             setGalleryList(prev => prev.map(i => i.id === item.id ? { ...i, thumbnail_src: cacheBusted } : i))
             snapshotRef.current = snapshotRef.current.map(i => i.id === item.id ? { ...i, thumbnail_src: cacheBusted } : i)
             showToast(`Poster for #${item.id} updated`, 'success')

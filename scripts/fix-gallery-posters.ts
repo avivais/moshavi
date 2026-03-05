@@ -54,7 +54,8 @@ async function run() {
         const thumbPath = galleryFilePath(path.join('thumbs', thumbName));
         const ok = await extractVideoPoster(srcPath, thumbPath);
         if (ok) {
-            updateThumb.run(`/media/gallery/thumbs/${thumbName}`, row.id);
+            const thumbnail_src = `/media/gallery/thumbs/${thumbName}?v=${Date.now()}`;
+            updateThumb.run(thumbnail_src, row.id);
             posterFixed++;
             console.log(`Fixed poster id=${row.id}`);
         } else {
