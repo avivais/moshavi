@@ -23,7 +23,7 @@ export async function GET(request: Request) {
         const list = db
             .prepare(
                 `SELECT id, src, thumbnail_src, width, height, type, caption, alt, date, event_tag,
-                        taken_at, file_size, show_in_carousel, carousel_order, gallery_order, visible, created_at
+                        taken_at, file_size, duration, show_in_carousel, carousel_order, gallery_order, visible, created_at
                  FROM gallery_media ORDER BY gallery_order ASC, id ASC`
             )
             .all();

@@ -11,6 +11,7 @@ export interface GalleryMedia {
     event_tag: string | null
     taken_at: string | null
     file_size: number
+    duration: number | null
     show_in_carousel: number
     carousel_order: number
     gallery_order: number

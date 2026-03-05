@@ -15,10 +15,8 @@ const MIME: Record<string, string> = {
     '.mov': 'video/quicktime',
 };
 
-/**
- * Serve gallery media from public/media/gallery (same path upload writes to).
- * Ensures files are found regardless of static serving quirks.
- */
+const NO_CACHE = { 'Cache-Control': 'no-store' };
+
 export async function GET(
     _request: Request,
     context: { params: Promise<{ path?: string[] }> }
@@ -26,25 +24,25 @@ export async function GET(
     try {
         const { path: pathSegments } = await context.params;
         if (!pathSegments?.length) {
-            return NextResponse.json({ error: 'Not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Not found' }, { status: 404, headers: NO_CACHE });
         }
         const relativePath = pathSegments.join('/');
         if (relativePath.includes('..') || path.isAbsolute(relativePath)) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_CACHE });
         }
         const root = process.cwd();
         const publicDir = path.join(root, 'public');
         const galleryDir = path.join(publicDir, GALLERY_PUBLIC);
         const resolved = path.join(galleryDir, relativePath);
         if (!resolved.startsWith(galleryDir + path.sep) && resolved !== galleryDir) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403, headers: NO_CACHE });
         }
         if (!existsSync(resolved)) {
-            return NextResponse.json({ error: 'Not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Not found' }, { status: 404, headers: NO_CACHE });
         }
         const st = await stat(resolved);
         if (!st.isFile()) {
-            return NextResponse.json({ error: 'Not found' }, { status: 404 });
+            return NextResponse.json({ error: 'Not found' }, { status: 404, headers: NO_CACHE });
         }
         const ext = path.extname(resolved).toLowerCase();
         const contentType = MIME[ext] ?? 'application/octet-stream';
@@ -59,6 +57,6 @@ export async function GET(
         });
     } catch (err) {
         console.error('[media/gallery] serve error:', err);
-        return NextResponse.json({ error: 'Not found' }, { status: 404 });
+        return NextResponse.json({ error: 'Not found' }, { status: 404, headers: NO_CACHE });
     }
 }

@@ -58,67 +58,68 @@ function formatDate(iso?: string | null): string {
     try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) } catch { return iso }
 }
 
-function SortableCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide, onFixPoster }: {
-    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void; onFixPoster?: () => void
+function formatDuration(sec?: number | null): string {
+    if (sec == null || sec <= 0) return ''
+    const m = Math.floor(sec / 60)
+    const s = Math.floor(sec % 60)
+    return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function CardContent({ item, isSelected, onToggleSelect, onEdit, onHide, onFixPoster, fixingPoster, headerProps }: {
+    item: GalleryMedia; isSelected: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void; onFixPoster?: () => void; fixingPoster?: boolean; headerProps?: Record<string, unknown>
+}) {
+    const thumbSrc = item.type === 'video' && !(item.thumbnail_src?.trim()) ? VIDEO_PLACEHOLDER : (item.thumbnail_src || item.src)
+    const dur = item.type === 'video' ? formatDuration(item.duration) : ''
+
+    return (
+        <>
+            <div className="flex items-center gap-1 p-1 bg-gray-700 flex-shrink-0" {...headerProps}>
+                <input type="checkbox" checked={isSelected} onChange={onToggleSelect} onClick={e => e.stopPropagation()} className="rounded" />
+                <span className="text-xs truncate flex-1 cursor-grab">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
+            </div>
+            <div className="aspect-square bg-gray-900 relative flex-shrink-0 cursor-pointer" onClick={onEdit}>
+                {(item.thumbnail_src || item.src) && <img src={thumbSrc} alt={item.alt || ''} className="w-full h-full object-cover" />}
+                {item.show_in_carousel ? <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span> : null}
+                {!item.visible && <span className="absolute top-1 left-1 bg-red-600 text-white text-xs px-1 rounded">Hidden</span>}
+                {dur && <span className="absolute bottom-1 right-1 bg-black/70 text-white text-xs px-1 rounded">{dur}</span>}
+            </div>
+            <div className="p-1 text-xs space-y-0.5 flex-1 min-h-[3.25rem] cursor-pointer" onClick={onEdit}>
+                <div className="truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
+                {item.created_at && <div className="text-gray-500 truncate" title={item.created_at}>Up: {formatDate(item.created_at)}</div>}
+                {item.taken_at && <div className="text-gray-500 truncate" title={item.taken_at}>At: {formatDate(item.taken_at)}</div>}
+            </div>
+            <div className="p-1 flex flex-wrap gap-1 flex-shrink-0">
+                <button type="button" onClick={onEdit} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
+                <button type="button" onClick={onHide} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
+                {item.type === 'video' && onFixPoster && (
+                    <button type="button" onClick={onFixPoster} disabled={fixingPoster} className={`px-2 py-0.5 rounded text-xs ${fixingPoster ? 'bg-emerald-800 animate-pulse' : 'bg-emerald-600'}`}>
+                        {fixingPoster ? 'Extracting…' : 'Fix poster'}
+                    </button>
+                )}
+            </div>
+        </>
+    )
+}
+
+function SortableCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide, onFixPoster, fixingPoster }: {
+    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void; onFixPoster?: () => void; fixingPoster?: boolean
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
 
     return (
-        <div ref={setNodeRef} style={style} className={`border rounded overflow-hidden flex flex-col ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
-            <div className="flex items-center gap-1 p-1 bg-gray-700" {...attributes} {...listeners}>
-                <input type="checkbox" checked={isSelected} onChange={onToggleSelect} onClick={e => e.stopPropagation()} className="rounded" />
-                <span className="text-xs truncate flex-1 cursor-grab">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
-            </div>
-            <div className="aspect-square bg-gray-900 relative group/card flex-shrink-0">
-                {(item.thumbnail_src || item.src) && <img src={item.type === 'video' && !(item.thumbnail_src?.trim()) ? VIDEO_PLACEHOLDER : (item.thumbnail_src || item.src)} alt={item.alt || ''} className="w-full h-full object-cover" />}
-                {item.show_in_carousel ? <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span> : null}
-                {!item.visible && <span className="absolute top-1 left-1 bg-red-600 text-white text-xs px-1 rounded">Hidden</span>}
-                {item.src && <div className="hidden group-hover/card:block absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none"><img src={item.src} alt="" className="max-w-[300px] max-h-[300px] object-contain rounded shadow-lg border border-gray-600" /></div>}
-            </div>
-            <div className="p-1 text-xs space-y-0.5 flex-1 min-h-[3.25rem]">
-                <div className="truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
-                {item.created_at && <div className="text-gray-500 truncate" title={item.created_at}>Up: {formatDate(item.created_at)}</div>}
-                {item.taken_at && <div className="text-gray-500 truncate" title={item.taken_at}>At: {formatDate(item.taken_at)}</div>}
-            </div>
-            <div className="p-1 flex flex-wrap gap-1 flex-shrink-0">
-                <button type="button" onClick={onEdit} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
-                <button type="button" onClick={onHide} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
-                {item.type === 'video' && onFixPoster && (
-                    <button type="button" onClick={onFixPoster} className="bg-emerald-600 px-2 py-0.5 rounded text-xs">Fix poster</button>
-                )}
-            </div>
+        <div ref={setNodeRef} style={style} className={`border rounded overflow-hidden flex flex-col transition-shadow hover:shadow-lg hover:shadow-white/5 hover:border-gray-400 ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+            <CardContent item={item} isSelected={isSelected} onToggleSelect={onToggleSelect} onEdit={onEdit} onHide={onHide} onFixPoster={onFixPoster} fixingPoster={fixingPoster} headerProps={{ ...attributes, ...listeners }} />
         </div>
     )
 }
 
-function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide, onFixPoster }: {
-    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void; onFixPoster?: () => void
+function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide, onFixPoster, fixingPoster }: {
+    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void; onFixPoster?: () => void; fixingPoster?: boolean
 }) {
     return (
-        <div className={`border rounded overflow-hidden flex flex-col ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
-            <label className="flex items-center gap-1 p-1 bg-gray-700 flex-shrink-0">
-                <input type="checkbox" checked={isSelected} onChange={onToggleSelect} className="rounded" />
-                <span className="text-xs truncate">#{item.id} · {item.type === 'video' ? '🎬' : '📷'} · {formatFileSize(item.file_size || 0)}</span>
-            </label>
-            <div className="aspect-square bg-gray-900 relative group/card flex-shrink-0">
-                {(item.thumbnail_src || item.src) && <img src={item.type === 'video' && !(item.thumbnail_src?.trim()) ? VIDEO_PLACEHOLDER : (item.thumbnail_src || item.src)} alt={item.alt || ''} className="w-full h-full object-cover" />}
-                {item.show_in_carousel ? <span className="absolute top-1 right-1 bg-blue-600 text-white text-xs px-1 rounded">Carousel</span> : null}
-                {!item.visible && <span className="absolute top-1 left-1 bg-red-600 text-white text-xs px-1 rounded">Hidden</span>}
-                {item.src && <div className="hidden group-hover/card:block absolute z-30 bottom-full left-1/2 -translate-x-1/2 mb-2 pointer-events-none"><img src={item.src} alt="" className="max-w-[300px] max-h-[300px] object-contain rounded shadow-lg border border-gray-600" /></div>}
-            </div>
-            <div className="p-1 text-xs space-y-0.5 flex-1 min-h-[3.25rem]">
-                <div className="truncate" title={item.caption || item.date}>{item.caption || item.date || '—'}</div>
-                {item.created_at && <div className="text-gray-500 truncate" title={item.created_at}>Up: {formatDate(item.created_at)}</div>}
-                {item.taken_at && <div className="text-gray-500 truncate" title={item.taken_at}>At: {formatDate(item.taken_at)}</div>}
-            </div>
-            <div className="p-1 flex flex-wrap gap-1 flex-shrink-0">
-                <button type="button" onClick={onEdit} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
-                <button type="button" onClick={onHide} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
-                {item.type === 'video' && onFixPoster && (
-                    <button type="button" onClick={onFixPoster} className="bg-emerald-600 px-2 py-0.5 rounded text-xs">Fix poster</button>
-                )}
-            </div>
+        <div className={`border rounded overflow-hidden flex flex-col transition-shadow hover:shadow-lg hover:shadow-white/5 hover:border-gray-400 ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
+            <CardContent item={item} isSelected={isSelected} onToggleSelect={onToggleSelect} onEdit={onEdit} onHide={onHide} onFixPoster={onFixPoster} fixingPoster={fixingPoster} />
         </div>
     )
 }
@@ -378,9 +379,11 @@ export default function GalleryAdmin() {
         setMessage('Hide staged')
     }
 
+    const [fixingPosterId, setFixingPosterId] = useState<number | null>(null)
+
     const handleFixPoster = async (item: GalleryMedia) => {
-        if (!authToken || item.type !== 'video') return
-        setMessage('Extracting poster…')
+        if (!authToken || item.type !== 'video' || fixingPosterId) return
+        setFixingPosterId(item.id)
         try {
             const res = await fetch(`/api/admin/gallery/${item.id}/poster`, { method: 'POST', headers: { 'Authorization': authToken } })
             const json = await res.json()
@@ -389,9 +392,12 @@ export default function GalleryAdmin() {
                 return
             }
             setGalleryList(prev => prev.map(i => i.id === item.id ? { ...i, thumbnail_src: json.thumbnail_src } : i))
+            snapshotRef.current = snapshotRef.current.map(i => i.id === item.id ? { ...i, thumbnail_src: json.thumbnail_src } : i)
             setMessage('Poster updated')
         } catch {
             setMessage('Fix poster failed')
+        } finally {
+            setFixingPosterId(null)
         }
     }
 
@@ -401,7 +407,7 @@ export default function GalleryAdmin() {
         try {
             const entries = Array.from(pendingChanges.entries())
             const reorderIds = entries.find(([, c]) => 'gallery_order' in c) ? galleryList.map(i => i.id) : null
-            const promises: Promise<unknown>[] = []
+            const promises: Promise<Response>[] = []
             for (const [id, changes] of entries) {
                 // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { gallery_order: _go, ...rest } = changes as Record<string, unknown>
@@ -418,9 +424,16 @@ export default function GalleryAdmin() {
                     body: JSON.stringify({ gallery_order: reorderIds }),
                 }))
             }
-            await Promise.all(promises)
-            setMessage('All changes saved')
-            refreshGallery(); refreshStorage()
+            const responses = await Promise.all(promises)
+            const failed = responses.filter(r => !r.ok)
+            if (failed.length > 0) {
+                setMessage(`${failed.length} save(s) failed`)
+            } else {
+                setMessage('All changes saved')
+            }
+            snapshotRef.current = galleryList
+            setPendingChanges(new Map())
+            refreshStorage()
         } catch {
             setMessage('Save failed')
         } finally {
@@ -555,7 +568,7 @@ export default function GalleryAdmin() {
     const hasVisibleSelected = selectedItems.some(i => i.visible)
     const hasHiddenSelected = selectedItems.some(i => !i.visible)
 
-    const isSuccessMsg = (m: string) => ['Updated', 'Hidden', 'Permanently deleted', 'Bulk action done', 'Upload successful', 'Removed'].some(s => m.includes(s))
+    const isSuccessMsg = (m: string) => ['Updated', 'Hidden', 'Permanently deleted', 'Bulk action done', 'Upload successful', 'Removed', 'Poster updated', 'All changes saved', 'Changes discarded'].some(s => m.includes(s))
 
     if (isAuthenticated === null) return <div className="p-4 max-w-2xl mx-auto bg-gray-900 text-white rounded-lg">Authenticating...</div>
     if (!isAuthenticated) return <div className="p-4 max-w-2xl mx-auto bg-gray-900 text-white rounded-lg">{message}</div>
@@ -755,7 +768,7 @@ export default function GalleryAdmin() {
                             <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
                                 {sortedList.map(item => (
                                     <SortableCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)} hasPending={pendingChanges.has(item.id)}
-                                        onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} onFixPoster={() => handleFixPoster(item)} />
+                                        onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} onFixPoster={() => handleFixPoster(item)} fixingPoster={fixingPosterId === item.id} />
                                 ))}
                             </div>
                         </SortableContext>
@@ -764,7 +777,7 @@ export default function GalleryAdmin() {
                     <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
                         {sortedList.map(item => (
                             <PlainCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)} hasPending={pendingChanges.has(item.id)}
-                                onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} onFixPoster={() => handleFixPoster(item)} />
+                                onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} onFixPoster={() => handleFixPoster(item)} fixingPoster={fixingPosterId === item.id} />
                         ))}
                     </div>
                 )
@@ -869,7 +882,7 @@ export default function GalleryAdmin() {
 
             {/* Save / Discard bar */}
             {pendingChanges.size > 0 && (
-                <div className="fixed top-0 left-0 right-0 bg-yellow-900/90 border-b border-yellow-600 px-4 py-2 z-40 backdrop-blur-sm">
+                <div className="fixed top-12 left-0 right-0 bg-yellow-900/90 border-b border-yellow-600 px-4 py-2 z-[101] backdrop-blur-sm">
                     <div className="max-w-5xl mx-auto flex items-center justify-between">
                         <span className="text-sm font-medium">{pendingChanges.size} unsaved change{pendingChanges.size > 1 ? 's' : ''}</span>
                         <div className="flex gap-2">

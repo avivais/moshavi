@@ -18,7 +18,7 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        source: "/media/(.*)", // Static files in /public/media
+        source: "/media/:path((?!gallery/).*)", // Static files in /public/media except gallery (served by API)
         headers: [
           {
             key: "Cache-Control",

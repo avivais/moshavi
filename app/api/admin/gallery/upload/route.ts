@@ -86,20 +86,21 @@ function isVideo(mime: string): boolean {
     return ALLOWED_VIDEO_TYPES.has(mime);
 }
 
-async function getVideoMetadata(filePath: string): Promise<{ width: number; height: number; creationDate: string | null }> {
+async function getVideoMetadata(filePath: string): Promise<{ width: number; height: number; duration: number | null; creationDate: string | null }> {
     return new Promise((resolve, reject) => {
         ffmpeg.ffprobe(filePath, (err, data) => {
             if (err) return reject(err);
             const stream = data.streams.find((s) => s.width != null && s.height != null);
             const width = stream?.width ?? 1920;
             const height = stream?.height ?? 1080;
+            const duration = typeof data.format?.duration === 'number' ? data.format.duration : null;
 
             let creationDate: string | null = null;
             const rawDate = data.format?.tags?.creation_time;
             if (rawDate) {
                 try { creationDate = new Date(rawDate).toISOString(); } catch { /* ignore */ }
             }
-            resolve({ width, height, creationDate });
+            resolve({ width, height, duration, creationDate });
         });
     });
 }
@@ -108,7 +109,7 @@ async function processVideo(
     buffer: Buffer,
     mime: string,
     baseName: string
-): Promise<{ src: string; thumbnail_src: string | null; width: number; height: number; takenAt: string | null; fileSize: number }> {
+): Promise<{ src: string; thumbnail_src: string | null; width: number; height: number; duration: number | null; takenAt: string | null; fileSize: number }> {
     const ext = getExt(mime);
     const srcPath = galleryFilePath(baseName + ext);
     await writeFile(srcPath, buffer);
@@ -126,11 +127,13 @@ async function processVideo(
     }
     let width = 1920;
     let height = 1080;
+    let duration: number | null = null;
     let takenAt: string | null = null;
     try {
         const meta = await getVideoMetadata(srcPath);
         width = meta.width;
         height = meta.height;
+        duration = meta.duration;
         takenAt = meta.creationDate;
     } catch {
         // keep defaults
@@ -141,6 +144,7 @@ async function processVideo(
         thumbnail_src,
         width,
         height,
+        duration,
         takenAt,
         fileSize,
     };
@@ -178,8 +182,8 @@ export async function POST(request: Request) {
         let nextOrder = maxOrderRow.next_order;
 
         const insertStmt = db.prepare(
-            `INSERT INTO gallery_media (src, thumbnail_src, width, height, type, caption, alt, date, event_tag, taken_at, file_size, show_in_carousel, carousel_order, gallery_order, visible, content_hash)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 1, ?)`
+            `INSERT INTO gallery_media (src, thumbnail_src, width, height, type, caption, alt, date, event_tag, taken_at, file_size, duration, show_in_carousel, carousel_order, gallery_order, visible, content_hash)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 1, ?)`
         );
         const results: Array<{ id: number; src: string; thumbnail_src: string | null; width: number; height: number }> = [];
         const skippedDuplicates: Array<{ name: string; reason: 'duplicate' }> = [];
@@ -219,11 +223,11 @@ export async function POST(request: Request) {
             if (isImage(mime)) {
                 const result = await processImage(buffer, mime, baseName);
                 const takenAt = takenAtOverride || result.takenAt;
-                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'photo', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++, contentHash);
+                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'photo', caption, alt, date, eventTag, takenAt, result.fileSize, null, nextOrder++, contentHash);
             } else {
                 const result = await processVideo(buffer, mime, baseName);
                 const takenAt = takenAtOverride || result.takenAt;
-                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'video', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++, contentHash);
+                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'video', caption, alt, date, eventTag, takenAt, result.fileSize, result.duration, nextOrder++, contentHash);
             }
 
             const row = db.prepare('SELECT id, src, thumbnail_src, width, height FROM gallery_media ORDER BY id DESC LIMIT 1').get() as {
