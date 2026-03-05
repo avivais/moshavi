@@ -26,8 +26,7 @@ async function ensureDirs(): Promise<void> {
 async function processImage(
     buffer: Buffer,
     mime: string,
-    baseName: string,
-    _root: string
+    baseName: string
 ): Promise<{ src: string; thumbnail_src: string; width: number; height: number; takenAt: string | null; fileSize: number }> {
     const ext = getExt(mime);
     const srcPath = galleryFilePath(baseName + ext);
@@ -125,8 +124,7 @@ async function getVideoMetadata(filePath: string): Promise<{ width: number; heig
 async function processVideo(
     buffer: Buffer,
     mime: string,
-    baseName: string,
-    _root: string
+    baseName: string
 ): Promise<{ src: string; thumbnail_src: string | null; width: number; height: number; takenAt: string | null; fileSize: number }> {
     const ext = getExt(mime);
     const srcPath = galleryFilePath(baseName + ext);
@@ -236,11 +234,11 @@ export async function POST(request: Request) {
             const alt = altOverride || caption || file.name || '';
 
             if (isImage(mime)) {
-                const result = await processImage(buffer, mime, baseName, root);
+                const result = await processImage(buffer, mime, baseName);
                 const takenAt = takenAtOverride || result.takenAt;
                 insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'photo', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++, contentHash);
             } else {
-                const result = await processVideo(buffer, mime, baseName, root);
+                const result = await processVideo(buffer, mime, baseName);
                 const takenAt = takenAtOverride || result.takenAt;
                 insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'video', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++, contentHash);
             }
