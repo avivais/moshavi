@@ -53,6 +53,9 @@ if (require.main === module) {
         // Add file_size column if missing
         try { db.exec('ALTER TABLE gallery_media ADD COLUMN file_size INTEGER NOT NULL DEFAULT 0'); console.log('Added file_size column'); } catch { console.log('file_size column already exists'); }
 
+        // Add content_hash column for duplicate detection (SHA-256 hex)
+        try { db.exec('ALTER TABLE gallery_media ADD COLUMN content_hash TEXT'); console.log('Added content_hash column'); } catch { console.log('content_hash column already exists'); }
+
         // Backfill file_size from disk for any rows still at 0
         const zeroSizeRows = db.prepare('SELECT id, src FROM gallery_media WHERE file_size = 0').all() as Array<{ id: number; src: string }>;
         if (zeroSizeRows.length > 0) {

@@ -142,6 +142,8 @@ export default function GalleryAdmin() {
     } | null>(null)
     const [brokenItems, setBrokenItems] = useState<Array<{ id: number; src: string; type: string; caption: string; alt: string; date: string; event_tag: string | null; visible: number; created_at?: string }>>([])
     const [cleaningUpBroken, setCleaningUpBroken] = useState(false)
+    const [duplicateGroups, setDuplicateGroups] = useState<Array<{ content_hash: string; ids: number[]; count: number; thumbnail_src: string | null; type: string; caption_preview: string }>>([])
+    const [cleaningUpDuplicates, setCleaningUpDuplicates] = useState(false)
     const [sortOption, setSortOption] = useState<SortOption>(() => {
         if (typeof window !== 'undefined') return (localStorage.getItem('gallery_sort') as SortOption) || 'manual'
         return 'manual'
@@ -226,9 +228,18 @@ export default function GalleryAdmin() {
         }
     }, [authToken])
 
+    const refreshDuplicates = useCallback(() => {
+        if (authToken) {
+            fetch('/api/admin/gallery/duplicates', { headers: { 'Authorization': authToken } })
+                .then(res => res.ok ? res.json() : { groups: [] })
+                .then((data: { groups?: Array<{ content_hash: string; ids: number[]; count: number; thumbnail_src: string | null; type: string; caption_preview: string }> }) => setDuplicateGroups(data.groups ?? []))
+                .catch(() => setDuplicateGroups([]))
+        }
+    }, [authToken])
+
     useEffect(() => {
-        if (isAuthenticated && authToken) { refreshGallery(); refreshStorage(); refreshBroken() }
-    }, [isAuthenticated, authToken, refreshGallery, refreshStorage, refreshBroken])
+        if (isAuthenticated && authToken) { refreshGallery(); refreshStorage(); refreshBroken(); refreshDuplicates() }
+    }, [isAuthenticated, authToken, refreshGallery, refreshStorage, refreshBroken, refreshDuplicates])
 
     useEffect(() => {
         setGalleryBulkSelected(new Set())
@@ -299,13 +310,31 @@ export default function GalleryAdmin() {
                 }
             }
             await new Promise<void>((resolve, reject) => {
-                xhr.onload = () => { if (xhr.status >= 200 && xhr.status < 300) resolve(); else { try { reject(new Error(JSON.parse(xhr.responseText || '{}').error || 'Upload failed')) } catch { reject(new Error('Upload failed')) } } }
+                xhr.onload = () => {
+                    if (xhr.status >= 200 && xhr.status < 300) {
+                        try {
+                            const json = JSON.parse(xhr.responseText || '{}')
+                            const skipped = json.skippedDuplicates as Array<{ name: string; reason: string }> | undefined
+                            const added = Array.isArray(json.items) ? json.items.length : 0
+                            const dupCount = Array.isArray(skipped) ? skipped.length : 0
+                            if (dupCount > 0) {
+                                setMessage(added > 0 ? `Upload successful: ${added} added, ${dupCount} duplicate(s) skipped` : `${dupCount} duplicate(s) skipped (already in gallery)`)
+                            } else {
+                                setMessage('Upload successful')
+                            }
+                        } catch {
+                            setMessage('Upload successful')
+                        }
+                        resolve()
+                    } else {
+                        try { reject(new Error(JSON.parse(xhr.responseText || '{}').error || 'Upload failed')) } catch { reject(new Error('Upload failed')) }
+                    }
+                }
                 xhr.onerror = () => reject(new Error('Network error'))
                 xhr.send(formData)
             })
             setGalleryUploadProgress({ current: total, total })
-            setMessage('Upload successful')
-            refreshGallery(); refreshStorage()
+            refreshGallery(); refreshStorage(); refreshDuplicates()
         } catch (err) {
             setMessage(err instanceof Error ? err.message : 'Upload failed')
         } finally {
@@ -420,6 +449,25 @@ export default function GalleryAdmin() {
             setMessage('Cleanup failed')
         } finally {
             setCleaningUpBroken(false)
+        }
+    }
+
+    const handleCleanupDuplicates = async () => {
+        if (!authToken || duplicateGroups.length === 0) return
+        setCleaningUpDuplicates(true)
+        try {
+            const res = await fetch('/api/admin/gallery/duplicates', { method: 'POST', headers: { 'Authorization': authToken } })
+            const json = await res.json()
+            if (json.success) {
+                setMessage(json.removed ? `Removed ${json.removed} duplicate row(s) (kept oldest per group)` : 'No duplicates to remove')
+                refreshGallery(); refreshStorage(); refreshDuplicates()
+            } else {
+                setMessage(json.error || 'Cleanup failed')
+            }
+        } catch {
+            setMessage('Cleanup failed')
+        } finally {
+            setCleaningUpDuplicates(false)
         }
     }
 
@@ -575,6 +623,30 @@ export default function GalleryAdmin() {
                         className="bg-red-600 hover:bg-red-700 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium"
                     >
                         {cleaningUpBroken ? 'Removing…' : `Remove ${brokenItems.length} broken row(s)`}
+                    </button>
+                </div>
+            )}
+
+            {/* Duplicate media: same content_hash (e.g. re-uploads); cleanup keeps oldest per group */}
+            {duplicateGroups.length > 0 && (
+                <div className="mb-6 p-4 bg-amber-900/30 border border-amber-700 rounded-lg">
+                    <h2 className="text-sm font-bold mb-2 text-amber-300">Duplicate media ({duplicateGroups.length} group{duplicateGroups.length !== 1 ? 's' : ''})</h2>
+                    <p className="text-xs text-gray-400 mb-3">These items have identical file content (same hash). Clean up keeps the oldest per group and removes the rest (and their files).</p>
+                    <ul className="text-xs text-gray-300 mb-3 space-y-2 max-h-40 overflow-y-auto">
+                        {duplicateGroups.map((g, i) => (
+                            <li key={g.content_hash} className="flex items-center gap-2">
+                                {g.thumbnail_src && <img src={g.thumbnail_src} alt="" className="w-8 h-8 object-cover rounded flex-shrink-0" />}
+                                <span>Group {i + 1}: {g.count} item(s) · IDs {g.ids.join(', ')} {g.caption_preview ? `· "${g.caption_preview}${g.caption_preview.length >= 60 ? '…' : ''}"` : ''}</span>
+                            </li>
+                        ))}
+                    </ul>
+                    <button
+                        type="button"
+                        onClick={handleCleanupDuplicates}
+                        disabled={cleaningUpDuplicates}
+                        className="bg-amber-600 hover:bg-amber-700 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium"
+                    >
+                        {cleaningUpDuplicates ? 'Removing…' : `Clean up duplicates (keep oldest per group)`}
                     </button>
                 </div>
             )}

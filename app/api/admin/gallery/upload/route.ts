@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { writeFile, mkdir, stat } from 'fs/promises';
 import path from 'path';
-import { randomUUID } from 'crypto';
+import { randomUUID, createHash } from 'crypto';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import exifReader from 'exif-reader';
@@ -200,10 +200,12 @@ export async function POST(request: Request) {
         let nextOrder = maxOrderRow.next_order;
 
         const insertStmt = db.prepare(
-            `INSERT INTO gallery_media (src, thumbnail_src, width, height, type, caption, alt, date, event_tag, taken_at, file_size, show_in_carousel, carousel_order, gallery_order, visible)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 1)`
+            `INSERT INTO gallery_media (src, thumbnail_src, width, height, type, caption, alt, date, event_tag, taken_at, file_size, show_in_carousel, carousel_order, gallery_order, visible, content_hash)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, ?, 1, ?)`
         );
         const results: Array<{ id: number; src: string; thumbnail_src: string | null; width: number; height: number }> = [];
+        const skippedDuplicates: Array<{ name: string; reason: 'duplicate' }> = [];
+        const checkDuplicateStmt = db.prepare('SELECT id FROM gallery_media WHERE content_hash = ? LIMIT 1');
 
         for (const file of files) {
             const mime = file.type?.toLowerCase() || '';
@@ -225,18 +227,25 @@ export async function POST(request: Request) {
                 return NextResponse.json({ error: `Unsupported type: ${mime}` }, { status: 400 });
             }
 
-            const baseName = randomUUID();
             const buffer = Buffer.from(await file.arrayBuffer());
+            const contentHash = createHash('sha256').update(buffer).digest('hex');
+            const existing = checkDuplicateStmt.get(contentHash) as { id: number } | undefined;
+            if (existing) {
+                skippedDuplicates.push({ name: file.name, reason: 'duplicate' });
+                continue;
+            }
+
+            const baseName = randomUUID();
             const alt = altOverride || caption || file.name || '';
 
             if (isImage(mime)) {
                 const result = await processImage(buffer, mime, baseName, root);
                 const takenAt = takenAtOverride || result.takenAt;
-                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'photo', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++);
+                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'photo', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++, contentHash);
             } else {
                 const result = await processVideo(buffer, mime, baseName, root);
                 const takenAt = takenAtOverride || result.takenAt;
-                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'video', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++);
+                insertStmt.run(result.src, result.thumbnail_src, result.width, result.height, 'video', caption, alt, date, eventTag, takenAt, result.fileSize, nextOrder++, contentHash);
             }
 
             const row = db.prepare('SELECT id, src, thumbnail_src, width, height FROM gallery_media ORDER BY id DESC LIMIT 1').get() as {
@@ -259,7 +268,7 @@ export async function POST(request: Request) {
             rows.forEach((row, i) => updateOrder.run(baseOrder + i, row.id));
         }
 
-        return NextResponse.json({ success: true, items: results }, { status: 201 });
+        return NextResponse.json({ success: true, items: results, skippedDuplicates }, { status: 201 });
     } catch (error) {
         console.error('Gallery upload error:', error);
         return NextResponse.json(
