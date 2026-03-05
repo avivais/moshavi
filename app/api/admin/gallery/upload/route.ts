@@ -10,7 +10,7 @@ import db from '../../../../../database';
 const BEARER = `Bearer ${process.env.ADMIN_PASSWORD}`;
 const MAX_SIZE = 20 * 1024 * 1024; // 20 MB
 const ALLOWED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
-const ALLOWED_VIDEO_TYPES = new Set(['video/mp4', 'video/webm']);
+const ALLOWED_VIDEO_TYPES = new Set(['video/mp4', 'video/webm', 'video/quicktime']);
 const THUMB_MAX_WIDTH = 400;
 const VIDEO_POSTER_TIME_SEC = 3;
 const GALLERY_DIR = 'public/media/gallery';
@@ -28,6 +28,7 @@ function getExt(mime: string): string {
         'image/webp': '.webp',
         'video/mp4': '.mp4',
         'video/webm': '.webm',
+        'video/quicktime': '.mov',
     };
     return map[mime] || '';
 }
