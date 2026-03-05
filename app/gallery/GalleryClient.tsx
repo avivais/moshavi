@@ -2,14 +2,15 @@
 
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 
-function GalleryCell({ thumb, alt, ratio, onClick }: { thumb: string; alt: string; ratio: number; onClick: () => void }) {
+function GalleryCell({ thumb, alt, ratio, type, onClick }: { thumb: string; alt: string; ratio: number; type: 'photo' | 'video'; onClick: () => void }) {
     const [loaded, setLoaded] = useState(false);
     return (
         <button
             type="button"
-            className="w-full rounded-lg overflow-hidden bg-gray-800 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black text-left"
+            className="group w-full rounded-lg overflow-hidden bg-gray-800 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black text-left transition-transform duration-200 hover:scale-[1.02] hover:ring-2 hover:ring-white/70 focus:scale-[1.02] cursor-pointer"
             onClick={onClick}
             style={{ aspectRatio: ratio }}
+            aria-label={type === 'video' ? 'Play video' : 'View image'}
         >
             <span className="block w-full h-full relative">
                 {!loaded && (
@@ -22,6 +23,16 @@ function GalleryCell({ thumb, alt, ratio, onClick }: { thumb: string; alt: strin
                     loading="lazy"
                     onLoad={() => setLoaded(true)}
                 />
+                {type === 'video' && (
+                    <span className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden="true">
+                        <span className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-black/50 flex items-center justify-center ring-2 ring-white/80">
+                            <svg className="w-6 h-6 md:w-7 md:h-7 text-white ml-0.5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                        </span>
+                    </span>
+                )}
+                <span className="absolute inset-0 bg-white/0 group-hover:bg-white/5 transition-colors duration-200 pointer-events-none" aria-hidden="true" />
             </span>
         </button>
     );
@@ -150,6 +161,7 @@ export default function GalleryClient() {
                                         thumb={item.thumbnail_src || item.src}
                                         alt={item.caption || item.alt || ''}
                                         ratio={aspectRatio(item)}
+                                        type={item.type}
                                         onClick={() => openLightbox(flatIndex)}
                                     />
                                 );
@@ -173,22 +185,35 @@ export default function GalleryClient() {
 }
 
 function LightboxSlide({ item }: { item: GalleryItem }) {
+    const [loaded, setLoaded] = useState(false);
+    useEffect(() => {
+        setLoaded(false);
+    }, [item.id]);
     return (
-        <div className="flex-shrink-0 w-screen h-full flex items-center justify-center p-4">
+        <div className="flex-shrink-0 w-screen h-full flex items-center justify-center p-4 relative">
+            {!loaded && (
+                <span className="absolute inset-0 flex items-center justify-center bg-black/40 z-10" aria-hidden="true">
+                    <span className="w-12 h-12 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                </span>
+            )}
             {item.type === 'video' ? (
                 <video
                     src={item.src}
                     controls
-                    className="max-w-full max-h-full object-contain"
+                    className={`max-w-full max-h-full object-contain transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'}`}
                     poster={item.thumbnail_src || undefined}
                     playsInline
+                    onLoadedData={() => setLoaded(true)}
+                    onError={() => setLoaded(true)}
                 />
             ) : (
                 <img
                     src={item.src}
                     alt={item.caption || item.alt || ''}
-                    className="max-w-full max-h-full object-contain select-none"
+                    className={`max-w-full max-h-full object-contain select-none transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'}`}
                     draggable={false}
+                    onLoad={() => setLoaded(true)}
+                    onError={() => setLoaded(true)}
                 />
             )}
         </div>
