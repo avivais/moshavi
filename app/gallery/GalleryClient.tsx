@@ -7,7 +7,7 @@ function GalleryCell({ thumb, alt, ratio, type, onClick }: { thumb: string; alt:
     return (
         <button
             type="button"
-            className="group w-full rounded-lg overflow-hidden bg-gray-800 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black text-left transition-transform duration-200 hover:scale-[1.02] hover:ring-2 hover:ring-white/70 focus:scale-[1.02] cursor-pointer"
+            className="group w-full rounded-lg overflow-hidden bg-gray-800 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-black text-left transition-transform duration-200 hover:scale-[1.02] focus:scale-[1.02] cursor-pointer"
             onClick={onClick}
             style={{ aspectRatio: ratio }}
             aria-label={type === 'video' ? 'Play video' : 'View image'}
