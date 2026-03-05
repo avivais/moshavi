@@ -115,7 +115,7 @@ function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHid
 }
 
 export default function GalleryAdmin() {
-    const { authToken, isAuthenticated, message, setMessage } = useAdminAuth()
+    const { authToken, isAuthenticated, message, setMessage, logout } = useAdminAuth()
 
     const [galleryList, setGalleryList] = useState<GalleryMedia[]>([])
     const [loading, setLoading] = useState(true)
@@ -540,7 +540,10 @@ export default function GalleryAdmin() {
         <div className="p-4 max-w-5xl mx-auto bg-gray-900 text-white rounded-lg">
             <div className="flex items-center justify-between mb-4">
                 <h1 className="text-2xl font-bold">Gallery Admin</h1>
-                <a href="/admin" className="text-blue-400 hover:text-blue-300 text-sm">&larr; Back to Admin Hub</a>
+                <div className="flex items-center gap-3">
+                    <a href="/admin" className="text-blue-400 hover:text-blue-300 text-sm">&larr; Back to Admin Hub</a>
+                    <button type="button" onClick={logout} className="text-sm text-gray-400 hover:text-white">Log out</button>
+                </div>
             </div>
             {message && <p className={isSuccessMsg(message) ? 'text-green-500 mb-3' : 'text-red-500 mb-3'}>{message}</p>}
 

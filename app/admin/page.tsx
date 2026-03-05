@@ -60,7 +60,7 @@ interface YoutubeSyncPreviewItem {
 }
 
 export default function Admin() {
-    const { authToken, isAuthenticated, message, setMessage } = useAdminAuth()
+    const { authToken, isAuthenticated, message, setMessage, logout } = useAdminAuth()
 
     const [form, setForm] = useState<FormData>({ type: 'playlist' })
     const [data, setData] = useState<Data | null>(null)
@@ -200,7 +200,10 @@ export default function Admin() {
 
     return (
         <div className="p-4 max-w-4xl mx-auto bg-gray-900 text-white rounded-lg">
-            <h1 className="text-2xl font-bold mb-4">Admin Panel</h1>
+            <div className="flex items-center justify-between mb-4">
+                <h1 className="text-2xl font-bold">Admin Panel</h1>
+                <button type="button" onClick={logout} className="text-sm text-gray-400 hover:text-white">Log out</button>
+            </div>
             {message && <p className={message.includes('successful') || message.startsWith('Added') ? 'text-green-500' : 'text-red-500'}>{message}</p>}
 
             {/* Gallery Admin link card */}
