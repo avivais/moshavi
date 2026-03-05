@@ -55,8 +55,8 @@ function formatDate(iso?: string | null): string {
     try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) } catch { return iso }
 }
 
-function SortableCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide }: {
-    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void
+function SortableCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide, onFixPoster }: {
+    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void; onFixPoster?: () => void
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
     const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }
@@ -81,13 +81,16 @@ function SortableCard({ item, isSelected, hasPending, onToggleSelect, onEdit, on
             <div className="p-1 flex flex-wrap gap-1">
                 <button type="button" onClick={onEdit} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
                 <button type="button" onClick={onHide} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
+                {item.type === 'video' && !item.thumbnail_src && onFixPoster && (
+                    <button type="button" onClick={onFixPoster} className="bg-emerald-600 px-2 py-0.5 rounded text-xs">Fix poster</button>
+                )}
             </div>
         </div>
     )
 }
 
-function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide }: {
-    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void
+function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHide, onFixPoster }: {
+    item: GalleryMedia; isSelected: boolean; hasPending: boolean; onToggleSelect: () => void; onEdit: () => void; onHide: () => void; onFixPoster?: () => void
 }) {
     return (
         <div className={`border rounded overflow-hidden ${hasPending ? 'border-l-4 border-l-yellow-400' : ''} ${item.visible ? 'border-gray-600' : 'border-red-800 opacity-60'} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}>
@@ -109,6 +112,9 @@ function PlainCard({ item, isSelected, hasPending, onToggleSelect, onEdit, onHid
             <div className="p-1 flex flex-wrap gap-1">
                 <button type="button" onClick={onEdit} className="bg-yellow-600 px-2 py-0.5 rounded text-xs">Edit</button>
                 <button type="button" onClick={onHide} className="bg-red-600 px-2 py-0.5 rounded text-xs">Hide</button>
+                {item.type === 'video' && !item.thumbnail_src && onFixPoster && (
+                    <button type="button" onClick={onFixPoster} className="bg-emerald-600 px-2 py-0.5 rounded text-xs">Fix poster</button>
+                )}
             </div>
         </div>
     )
@@ -367,6 +373,23 @@ export default function GalleryAdmin() {
         applyPending(id, { visible: 0 })
         setGalleryEdit(null)
         setMessage('Hide staged')
+    }
+
+    const handleFixPoster = async (item: GalleryMedia) => {
+        if (!authToken || item.type !== 'video') return
+        setMessage('Extracting poster…')
+        try {
+            const res = await fetch(`/api/admin/gallery/${item.id}/poster`, { method: 'POST', headers: { 'Authorization': authToken } })
+            const json = await res.json()
+            if (!res.ok) {
+                setMessage(json.error || 'Fix poster failed')
+                return
+            }
+            setGalleryList(prev => prev.map(i => i.id === item.id ? { ...i, thumbnail_src: json.thumbnail_src } : i))
+            setMessage('Poster updated')
+        } catch {
+            setMessage('Fix poster failed')
+        }
     }
 
     const handleSaveAll = async () => {
@@ -729,7 +752,7 @@ export default function GalleryAdmin() {
                             <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
                                 {sortedList.map(item => (
                                     <SortableCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)} hasPending={pendingChanges.has(item.id)}
-                                        onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} />
+                                        onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} onFixPoster={() => handleFixPoster(item)} />
                                 ))}
                             </div>
                         </SortableContext>
@@ -738,7 +761,7 @@ export default function GalleryAdmin() {
                     <div className="mb-6 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[600px] overflow-y-auto">
                         {sortedList.map(item => (
                             <PlainCard key={item.id} item={item} isSelected={galleryBulkSelected.has(item.id)} hasPending={pendingChanges.has(item.id)}
-                                onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} />
+                                onToggleSelect={() => toggleGalleryBulk(item.id)} onEdit={() => setGalleryEdit(item)} onHide={() => handleGallerySoftDelete(item.id)} onFixPoster={() => handleFixPoster(item)} />
                         ))}
                     </div>
                 )

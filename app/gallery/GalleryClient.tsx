@@ -3,6 +3,10 @@
 import { useState, useEffect, useLayoutEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 
+// 1x1 dark gray image so video cells without a poster show a solid background instead of broken img
+const VIDEO_PLACEHOLDER =
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1' height='1'%3E%3Crect fill='%231f2937' width='1' height='1'/%3E%3C/svg%3E";
+
 function GalleryCell({ thumb, alt, ratio, type, onClick }: { thumb: string; alt: string; ratio: number; type: 'photo' | 'video'; onClick: () => void }) {
     const [loaded, setLoaded] = useState(false);
     return (
@@ -200,7 +204,11 @@ export default function GalleryClient() {
                                 return (
                                     <GalleryCell
                                         key={item.id}
-                                        thumb={item.thumbnail_src || item.src}
+                                        thumb={
+                                            item.type === 'video' && !(item.thumbnail_src?.trim())
+                                                ? VIDEO_PLACEHOLDER
+                                                : item.thumbnail_src || item.src
+                                        }
                                         alt={item.caption || item.alt || ''}
                                         ratio={aspectRatio(item)}
                                         type={item.type}
