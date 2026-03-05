@@ -84,7 +84,13 @@ export default function GalleryClient() {
                 return res.json();
             })
             .then((data) => {
-                if (mounted) setItems(data);
+                if (mounted) {
+                    // Defensive: only show items with displayable media (avoids ghost cells from bad data)
+                    const displayable = Array.isArray(data)
+                        ? data.filter((item: GalleryItem) => (item.thumbnail_src || item.src)?.trim())
+                        : [];
+                    setItems(displayable);
+                }
             })
             .catch((err) => {
                 if (mounted) setError(err instanceof Error ? err.message : 'Failed to load');

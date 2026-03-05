@@ -140,6 +140,8 @@ export default function GalleryAdmin() {
         disk: { total: number; used: number; free: number; percent: number }
         gallery: { images: { bytes: number; count: number }; videos: { bytes: number; count: number }; thumbs: { bytes: number }; total: { bytes: number; count: number } }
     } | null>(null)
+    const [brokenItems, setBrokenItems] = useState<Array<{ id: number; src: string; type: string; caption: string; alt: string; date: string; event_tag: string | null; visible: number; created_at?: string }>>([])
+    const [cleaningUpBroken, setCleaningUpBroken] = useState(false)
     const [sortOption, setSortOption] = useState<SortOption>(() => {
         if (typeof window !== 'undefined') return (localStorage.getItem('gallery_sort') as SortOption) || 'manual'
         return 'manual'
@@ -215,9 +217,18 @@ export default function GalleryAdmin() {
         }
     }, [authToken])
 
+    const refreshBroken = useCallback(() => {
+        if (authToken) {
+            fetch('/api/admin/gallery/broken', { headers: { 'Authorization': authToken } })
+                .then(res => res.ok ? res.json() : { items: [] })
+                .then((data: { items?: Array<{ id: number; src: string; type: string; caption: string; alt: string; date: string; event_tag: string | null; visible: number; created_at?: string }> }) => setBrokenItems(data.items ?? []))
+                .catch(() => setBrokenItems([]))
+        }
+    }, [authToken])
+
     useEffect(() => {
-        if (isAuthenticated && authToken) { refreshGallery(); refreshStorage() }
-    }, [isAuthenticated, authToken, refreshGallery, refreshStorage])
+        if (isAuthenticated && authToken) { refreshGallery(); refreshStorage(); refreshBroken() }
+    }, [isAuthenticated, authToken, refreshGallery, refreshStorage, refreshBroken])
 
     useEffect(() => {
         setGalleryBulkSelected(new Set())
@@ -393,6 +404,25 @@ export default function GalleryAdmin() {
         refreshGallery(); refreshStorage()
     }
 
+    const handleCleanupBroken = async () => {
+        if (!authToken || brokenItems.length === 0) return
+        setCleaningUpBroken(true)
+        try {
+            const res = await fetch('/api/admin/gallery/broken', { method: 'DELETE', headers: { 'Authorization': authToken } })
+            const json = await res.json()
+            if (json.success) {
+                setMessage(json.deleted ? `Removed ${json.deleted} broken media row(s)` : 'No broken media to remove')
+                refreshGallery(); refreshStorage(); refreshBroken()
+            } else {
+                setMessage(json.error || 'Cleanup failed')
+            }
+        } catch {
+            setMessage('Cleanup failed')
+        } finally {
+            setCleaningUpBroken(false)
+        }
+    }
+
     const handleGalleryBulk = (action: 'add_to_carousel' | 'remove_from_carousel' | 'set_event_tag' | 'hide' | 'show') => {
         if (galleryBulkSelected.size === 0) return
         const ids = Array.from(galleryBulkSelected)
@@ -451,7 +481,7 @@ export default function GalleryAdmin() {
     const hasVisibleSelected = selectedItems.some(i => i.visible)
     const hasHiddenSelected = selectedItems.some(i => !i.visible)
 
-    const isSuccessMsg = (m: string) => ['Updated', 'Hidden', 'Permanently deleted', 'Bulk action done', 'Upload successful'].some(s => m.includes(s))
+    const isSuccessMsg = (m: string) => ['Updated', 'Hidden', 'Permanently deleted', 'Bulk action done', 'Upload successful', 'Removed'].some(s => m.includes(s))
 
     if (isAuthenticated === null) return <div className="p-4 max-w-2xl mx-auto bg-gray-900 text-white rounded-lg">Authenticating...</div>
     if (!isAuthenticated) return <div className="p-4 max-w-2xl mx-auto bg-gray-900 text-white rounded-lg">{message}</div>
@@ -523,6 +553,29 @@ export default function GalleryAdmin() {
                     <div className="w-full h-3 bg-gray-700 rounded overflow-hidden">
                         <div className={`h-full transition-all duration-300 ${storageData.disk.percent > 85 ? 'bg-red-500' : storageData.disk.percent > 70 ? 'bg-yellow-500' : 'bg-green-500'}`} style={{ width: `${storageData.disk.percent}%` }} />
                     </div>
+                </div>
+            )}
+
+            {/* Broken media: DB rows whose files are missing */}
+            {brokenItems.length > 0 && (
+                <div className="mb-6 p-4 bg-red-900/30 border border-red-700 rounded-lg">
+                    <h2 className="text-sm font-bold mb-2 text-red-300">Broken media ({brokenItems.length})</h2>
+                    <p className="text-xs text-gray-400 mb-3">These rows reference missing files and can cause ghost placeholders. Remove them to clean the gallery.</p>
+                    <ul className="text-xs text-gray-300 mb-3 space-y-1 max-h-32 overflow-y-auto">
+                        {brokenItems.map(b => (
+                            <li key={b.id} className="truncate">
+                                #{b.id} · {b.type} · {b.src} {b.caption ? `· "${b.caption.slice(0, 40)}${b.caption.length > 40 ? '…' : ''}"` : ''}
+                            </li>
+                        ))}
+                    </ul>
+                    <button
+                        type="button"
+                        onClick={handleCleanupBroken}
+                        disabled={cleaningUpBroken}
+                        className="bg-red-600 hover:bg-red-700 disabled:opacity-50 px-4 py-2 rounded text-sm font-medium"
+                    >
+                        {cleaningUpBroken ? 'Removing…' : `Remove ${brokenItems.length} broken row(s)`}
+                    </button>
                 </div>
             )}
 
