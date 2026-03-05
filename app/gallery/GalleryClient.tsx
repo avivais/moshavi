@@ -184,11 +184,21 @@ export default function GalleryClient() {
     );
 }
 
-function LightboxSlide({ item }: { item: GalleryItem }) {
+function LightboxSlide({ item, isActive }: { item: GalleryItem; isActive?: boolean }) {
     const [loaded, setLoaded] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
     useEffect(() => {
         setLoaded(false);
     }, [item.id]);
+    useEffect(() => {
+        const v = videoRef.current;
+        if (item.type !== 'video' || !v) return;
+        if (isActive) {
+            v.play().catch(() => {});
+        } else {
+            v.pause();
+        }
+    }, [isActive, item.id, item.type]);
     return (
         <div className="flex-shrink-0 w-screen h-full flex items-center justify-center p-4 relative">
             {!loaded && (
@@ -198,12 +208,16 @@ function LightboxSlide({ item }: { item: GalleryItem }) {
             )}
             {item.type === 'video' ? (
                 <video
+                    ref={videoRef}
                     src={item.src}
                     controls
                     className={`max-w-full max-h-full object-contain transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'}`}
                     poster={item.thumbnail_src || undefined}
                     playsInline
-                    onLoadedData={() => setLoaded(true)}
+                    onLoadedData={() => {
+                        setLoaded(true);
+                        if (isActive) videoRef.current?.play().catch(() => {});
+                    }}
                     onError={() => setLoaded(true)}
                 />
             ) : (
@@ -420,9 +434,9 @@ function Lightbox({
                     style={{ width: '300vw', transform: 'translateX(-100vw)', willChange: 'transform' }}
                     onTransitionEnd={handleTransitionEnd}
                 >
-                    <LightboxSlide item={prevItem} />
-                    <LightboxSlide item={item} />
-                    <LightboxSlide item={nextItem} />
+                    <LightboxSlide item={prevItem} isActive={false} />
+                    <LightboxSlide item={item} isActive />
+                    <LightboxSlide item={nextItem} isActive={false} />
                 </div>
             </div>
 
