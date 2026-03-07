@@ -251,7 +251,8 @@ export default function GalleryClient() {
 function LightboxSlide({ item, isActive }: { item: GalleryItem; isActive?: boolean }) {
     const [loaded, setLoaded] = useState(false);
     const videoRef = useRef<HTMLVideoElement>(null);
-    useEffect(() => {
+    // Reset immediately on media change to avoid cached-image onLoad race.
+    useLayoutEffect(() => {
         setLoaded(false);
     }, [item.id]);
     useEffect(() => {
@@ -272,6 +273,7 @@ function LightboxSlide({ item, isActive }: { item: GalleryItem; isActive?: boole
             )}
             {item.type === 'video' ? (
                 <video
+                    key={`video-${item.id}-${item.src}`}
                     ref={videoRef}
                     src={item.src}
                     controls
@@ -286,6 +288,7 @@ function LightboxSlide({ item, isActive }: { item: GalleryItem; isActive?: boole
                 />
             ) : (
                 <img
+                    key={`image-${item.id}-${item.src}`}
                     src={item.src}
                     alt={item.caption || item.alt || ''}
                     className={`max-w-full max-h-full object-contain select-none transition-opacity duration-200 ${loaded ? 'opacity-100' : 'opacity-0'}`}
@@ -498,9 +501,9 @@ function Lightbox({
                     style={{ width: '300vw', transform: 'translateX(-100vw)', willChange: 'transform' }}
                     onTransitionEnd={handleTransitionEnd}
                 >
-                    <LightboxSlide item={prevItem} isActive={false} />
-                    <LightboxSlide item={item} isActive />
-                    <LightboxSlide item={nextItem} isActive={false} />
+                    <LightboxSlide key={`prev-${prevItem.id}`} item={prevItem} isActive={false} />
+                    <LightboxSlide key={`current-${item.id}`} item={item} isActive />
+                    <LightboxSlide key={`next-${nextItem.id}`} item={nextItem} isActive={false} />
                 </div>
             </div>
 
