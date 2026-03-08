@@ -73,10 +73,12 @@ if [ -n "${CLOUDFLARE_ZONE_ID:-}" ] && [ -n "${CLOUDFLARE_API_TOKEN:-}" ]; then
     --data '{"purge_everything":true}')
   HTTP_CODE=$(echo "$RESP" | tail -n1)
   BODY=$(echo "$RESP" | sed '$d')
-  if [ "$HTTP_CODE" = "200" ] && echo "$BODY" | grep -q '"success":true'; then
+  if [ "$HTTP_CODE" = "200" ] && echo "$BODY" | grep -qE '"success"\s*:\s*true'; then
     echo "Cloudflare cache purged."
   else
-    echo "Warning: Cloudflare purge returned HTTP $HTTP_CODE or success=false. Check CLOUDFLARE_ZONE_ID and CLOUDFLARE_API_TOKEN."
+    echo "Warning: Cloudflare purge failed (HTTP $HTTP_CODE or success=false)."
+    echo "Response body: $BODY"
+    echo "Check: CLOUDFLARE_ZONE_ID (dashboard → moshavi.com → Overview → Zone ID) and CLOUDFLARE_API_TOKEN (Zone → Cache Purge → Purge). Run ./scripts/test-cloudflare-purge.sh to debug."
   fi
 else
   echo "Skipping Cloudflare purge (set CLOUDFLARE_ZONE_ID and CLOUDFLARE_API_TOKEN in .env to enable)."

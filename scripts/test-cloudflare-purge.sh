@@ -29,12 +29,13 @@ RESP=$(curl -sS -w "\n%{http_code}" -X POST "https://api.cloudflare.com/client/v
 HTTP_CODE=$(echo "$RESP" | tail -n1)
 BODY=$(echo "$RESP" | sed '$d')
 
-if [ "$HTTP_CODE" = "200" ] && echo "$BODY" | grep -q '"success":true'; then
+if [ "$HTTP_CODE" = "200" ] && echo "$BODY" | grep -qE '"success"\s*:\s*true'; then
   echo "Cloudflare cache purge succeeded."
   echo "$BODY" | head -c 200
   echo ""
 else
-  echo "Cloudflare purge failed (HTTP $HTTP_CODE)."
+  echo "Cloudflare purge failed (HTTP $HTTP_CODE or success=false)."
+  echo "Response body:"
   echo "$BODY"
   exit 1
 fi

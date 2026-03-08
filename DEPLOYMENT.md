@@ -273,6 +273,16 @@ git remote set-url origin git@github.com:avivais/moshavi.git
 git push origin main
 ```
 
+### Cloudflare purge shows a warning during deploy
+
+The script treats purge as failed if the API response is not HTTP 200 or does not contain `"success": true`. Run locally to see the actual response:
+
+```bash
+./scripts/test-cloudflare-purge.sh
+```
+
+Check: **Zone ID** (Cloudflare dashboard → moshavi.com → Overview → Zone ID) and **API token** (Profile → API Tokens, with Zone → Cache Purge → Purge). Credentials live in local `.env` only; do not commit them.
+
 ---
 
 ## Summary: deploy to production
