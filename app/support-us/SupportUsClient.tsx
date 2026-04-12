@@ -122,7 +122,7 @@ export default function SupportUsClient() {
                     </div>
                 </div>
 
-                <p className="font-karantina mb-6 text-7xl md:text-8xl">
+                <p dir="rtl" className="font-karantina mb-6 text-7xl md:text-8xl">
                     רוצים <span className="font-bold">לתרום</span> בדרך אחרת?
                     <br />
                     דברו איתנו ב-<a href="https://chat.whatsapp.com/HX02K7Od1pMHCFJTp8Zdnc" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-green-600 transition">WhatsApp</a>
