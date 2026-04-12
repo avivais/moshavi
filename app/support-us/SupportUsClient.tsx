@@ -42,12 +42,6 @@ export default function SupportUsClient() {
                     />
                 </div>
 
-                <p className="font-karantina mb-6 text-7xl md:text-8xl">
-                    אבא <span className="font-bold">עשיר</span> אבא <span className="font-bold">עני</span>
-                    <br />
-                    אבא <span className="font-bold">תרחם</span> אבא <span className="font-bold">תשלם</span>
-                </p>
-
                 <div className="flex justify-center">
                     <div className="w-full max-w-md">
                         <div className="flex flex-col md:flex-row justify-center space-y-6 md:space-y-0 md:space-x-4 mb-6 text-xl">
@@ -65,7 +59,7 @@ export default function SupportUsClient() {
                                     <span>PayBox</span>
                                 </a>
                                 <span className="text-xs mt-1 text-gray-400" dir="rtl">
-                                    בדיקת סאונד 🎤
+                                    לתרומה לחצו על הכפתור
                                 </span>
                             </div>
 
@@ -127,6 +121,13 @@ export default function SupportUsClient() {
                         </div>
                     </div>
                 </div>
+
+                <p className="font-karantina mb-6 text-2xl md:text-8xl">
+                    רוצים לתרום בדרך אחרת?
+                    <br />
+                    דברו איתנו ב<a href="https://chat.whatsapp.com/HX02K7Od1pMHCFJTp8Zdnc" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-green-600 transition">WhatsApp</a>
+                </p>
+
             </section>
         </main>
     )
