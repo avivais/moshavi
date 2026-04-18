@@ -72,6 +72,17 @@ done
 
 die() { echo "Error: $*" >&2; exit 1; }
 
+# macOS: sips avoids ffmpeg image2 single-file warnings on PNG/JPEG/etc. Linux: ffmpeg, warnings suppressed.
+normalize_poster_jpeg() {
+  local src="$1" dst="$2"
+  if [[ "$(uname -s)" == "Darwin" ]] && command -v sips >/dev/null; then
+    if sips -s format jpeg "$src" --out "$dst" >/dev/null 2>&1 && [[ -s "$dst" ]]; then
+      return 0
+    fi
+  fi
+  ffmpeg -hide_banner -loglevel error -y -i "$src" -frames:v 1 -update 1 -q:v 2 "$dst"
+}
+
 [[ -n "$AUDIO" ]] || die "--audio is required"
 [[ -n "$POSTER" ]] || die "--poster is required"
 [[ -n "$TITLE" ]] || die "--title is required"
@@ -157,13 +168,13 @@ AUDIO_MP3="${WORK}/audio.mp3"
 OUT_MP4="${WORK}/${BASENAME}.mp4"
 
 echo "Normalizing poster to JPEG..."
-ffmpeg -hide_banner -loglevel warning -y -i "$POSTER" -frames:v 1 -q:v 2 "$POSTER_JPG"
+normalize_poster_jpeg "$POSTER" "$POSTER_JPG" || die "Failed to normalize poster to JPEG"
 
 ext="${AUDIO##*.}"
 lower="$(printf '%s' "$ext" | tr '[:upper:]' '[:lower:]')"
 if [[ "$lower" == "wav" ]]; then
   echo "Transcoding WAV to MP3..."
-  ffmpeg -hide_banner -loglevel warning -y -i "$AUDIO" -codec:a libmp3lame -qscale:a 2 "$AUDIO_MP3"
+  ffmpeg -hide_banner -loglevel error -y -i "$AUDIO" -codec:a libmp3lame -qscale:a 2 "$AUDIO_MP3"
 elif [[ "$lower" == "mp3" ]]; then
   cp "$AUDIO" "$AUDIO_MP3"
 else
@@ -171,7 +182,7 @@ else
 fi
 
 echo "Muxing still image + audio to MP4 (this may take a while)..."
-ffmpeg -hide_banner -loglevel info -y \
+ffmpeg -hide_banner -loglevel warning -stats -y \
   -loop 1 -i "$POSTER_JPG" -i "$AUDIO_MP3" \
   -c:v libx264 -tune stillimage -pix_fmt yuv420p \
   -c:a aac -b:a 192k \
