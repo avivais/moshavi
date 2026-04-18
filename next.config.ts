@@ -4,6 +4,10 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       { source: "/media/gallery/:path*", destination: "/api/media/gallery/:path*" },
+      // Sets/posters: serve via filesystem stream (same pattern as gallery). Relying on Next static
+      // file serving alone can 404 for files added after deploy; explicit routes always read from disk.
+      { source: "/media/sets/:path*", destination: "/api/media/sets/:path*" },
+      { source: "/media/poster/:path*", destination: "/api/media/poster/:path*" },
     ];
   },
   async headers() {
