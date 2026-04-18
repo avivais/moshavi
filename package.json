@@ -9,7 +9,8 @@
     "lint": "next lint",
     "db:setup": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only db/setup.ts",
     "db:backfill-hashes": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only db/backfill-gallery-hashes.ts",
-    "fix-posters": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only scripts/fix-gallery-posters.ts"
+    "fix-posters": "TS_NODE_COMPILER_OPTIONS='{\"module\":\"CommonJS\",\"moduleResolution\":\"node\"}' node -r ts-node/register/transpile-only scripts/fix-gallery-posters.ts",
+    "publish-set": "./scripts/publish-set.sh"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

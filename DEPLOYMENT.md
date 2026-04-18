@@ -144,6 +144,29 @@ ssh -i ~/.ssh/VaisenKey.pem ubuntu@ec2-98-84-90-118.compute-1.amazonaws.com "cd 
 
 ---
 
+## Publish a new Sets video (from your machine)
+
+Use [`scripts/publish-set.sh`](scripts/publish-set.sh) to encode a still image plus audio into an MP4, copy it and the poster JPEG to `public/media/sets` and `public/media/poster` on EC2, and register the row via `POST /api/admin`.
+
+1. Install **ffmpeg** locally (e.g. `brew install ffmpeg` on macOS).
+2. Copy `.env.example` to `.env` and set **`ADMIN_PASSWORD`** to the same value as production (the admin Bearer secret). SSH defaults match [`scripts/deploy.sh`](scripts/deploy.sh) (host `ec2-98-84-90-118.compute-1.amazonaws.com`, user `ubuntu`, app `/var/www/moshavi`, key `~/.ssh/VaisenKey.pem`); override with `MOSHAVI_SSH_*` only if your paths differ.
+3. Run (example):
+
+```bash
+./scripts/publish-set.sh \
+  --audio ./recording.wav \
+  --poster ./invite.jpg \
+  --title "MoshAvi #005" \
+  --date "18.04.2026" \
+  --basename MoshAvi-005
+```
+
+Equivalent: `npm run publish-set -- --audio ./recording.wav ...` (pass flags after `--`).
+
+Use `--dry-run` to encode locally and print the upload/API commands without copying or registering. Use `--skip-db` to upload files only (no database row). If new media does not appear behind Cloudflare, purge cache (same optional `.env` variables as `./scripts/deploy.sh`) or purge manually in the Cloudflare dashboard.
+
+---
+
 ## First-time server setup (only once)
 
 If the app has never been deployed to this EC2 instance, do the following once before using the steps above.
