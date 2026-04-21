@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useMemo } from 'react'
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 
 interface VideoSet {
     id: number
@@ -11,6 +11,12 @@ interface VideoSet {
 }
 
 export default function SetsClient() {
+    const DOUBLE_TAP_MS = 280
+    const SKIP_SECONDS = 10
+    const KEYBOARD_SEEK_SECONDS = 5
+    const FINE_SCRUB_Y_THRESHOLD = 44
+    const FINE_SCRUB_FACTOR = 0.25
+
     const [videoSets, setVideoSets] = useState<VideoSet[]>([])
     const [error, setError] = useState<string | null>(null)
     const [currentVideo, setCurrentVideo] = useState<VideoSet | null>(null)
@@ -27,10 +33,25 @@ export default function SetsClient() {
     const [isProgressHovered, setIsProgressHovered] = useState(false)
     const [isDragging, setIsDragging] = useState(false)
     const [bufferedPercent, setBufferedPercent] = useState(0)
+    const [isBuffering, setIsBuffering] = useState(false)
+    const [isSeeking, setIsSeeking] = useState(false)
+    const [isFullscreen, setIsFullscreen] = useState(false)
+    const [isPictureInPicture, setIsPictureInPicture] = useState(false)
+    const [pipSupported, setPipSupported] = useState(false)
+    const [showControls, setShowControls] = useState(true)
+    const [scrubPreviewTime, setScrubPreviewTime] = useState<number | null>(null)
+    const [scrubPreviewPos, setScrubPreviewPos] = useState<number | null>(null)
+    const [isFineScrubbing, setIsFineScrubbing] = useState(false)
+    const [skipFeedback, setSkipFeedback] = useState<{ direction: 'backward' | 'forward'; token: number } | null>(null)
     const didDragRef = useRef(false)
+    const leftTapAtRef = useRef(0)
+    const rightTapAtRef = useRef(0)
+    const skipFeedbackTimerRef = useRef<number | null>(null)
+    const scrubSessionRef = useRef<{ startPos: number; startY: number } | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const progressRef = useRef<HTMLDivElement>(null)
+    const playerShellRef = useRef<HTMLDivElement>(null)
 
     // Memoize the reversed video list unconditionally
     const memoizedVideoSets = useMemo(() => [...videoSets].reverse(), [videoSets])
@@ -65,6 +86,48 @@ export default function SetsClient() {
         setIsIOS(checkIOS())
     }, [])
 
+    const seekTo = useCallback((nextSeconds: number, reason: 'drag' | 'keyboard' | 'doubleTap' | 'button' | 'mediaSession') => {
+        const video = videoRef.current
+        if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return
+        const targetTime = Math.min(video.duration, Math.max(0, nextSeconds))
+        setIsSeeking(reason !== 'drag')
+        video.currentTime = targetTime
+        setCurrentTime(targetTime)
+        setProgress((targetTime / video.duration) * 100)
+    }, [])
+
+    const seekBy = useCallback((delta: number, reason: 'keyboard' | 'doubleTap' | 'button' | 'mediaSession') => {
+        const video = videoRef.current
+        if (!video) return
+        seekTo(video.currentTime + delta, reason)
+    }, [seekTo])
+
+    const togglePlayback = () => {
+        const video = videoRef.current
+        if (!video) return
+        if (video.paused) {
+            void video.play()
+        } else {
+            video.pause()
+        }
+    }
+
+    const indicateSkip = (direction: 'backward' | 'forward') => {
+        if (skipFeedbackTimerRef.current) {
+            window.clearTimeout(skipFeedbackTimerRef.current)
+        }
+        setSkipFeedback({ direction, token: Date.now() })
+        skipFeedbackTimerRef.current = window.setTimeout(() => {
+            setSkipFeedback(null)
+        }, 600)
+    }
+
+    const notifyInteraction = () => {
+        setShowControls(true)
+    }
+
+    const getBubbleLeftPercent = (positionRatio: number) => Math.min(92, Math.max(8, positionRatio * 100))
+
     useEffect(() => {
         const video = videoRef.current
         if (!video) return
@@ -77,9 +140,16 @@ export default function SetsClient() {
         }
 
         const updateBuffered = () => {
-            if (!video.duration || video.buffered.length === 0) return
-            const end = video.buffered.end(video.buffered.length - 1)
-            setBufferedPercent((end / video.duration) * 100)
+            if (!video.duration || video.buffered.length === 0) {
+                setBufferedPercent(0)
+                return
+            }
+            try {
+                const end = video.buffered.end(video.buffered.length - 1)
+                setBufferedPercent((end / video.duration) * 100)
+            } catch {
+                setBufferedPercent(0)
+            }
         }
 
         const handleLoadedMetadata = () => {
@@ -89,104 +159,259 @@ export default function SetsClient() {
             updateBuffered()
         }
 
+        const handleWaiting = () => setIsBuffering(true)
+        const handlePlaying = () => {
+            setIsBuffering(false)
+            setIsSeeking(false)
+        }
+        const handleCanPlay = () => setIsBuffering(false)
+        const handleSeeking = () => setIsSeeking(true)
+        const handleSeeked = () => setIsSeeking(false)
+        const handlePlay = () => setIsPlaying(true)
+        const handlePause = () => setIsPlaying(false)
+        const handleEnded = () => setIsPlaying(false)
+
         video.addEventListener('timeupdate', updateProgress)
         video.addEventListener('loadedmetadata', handleLoadedMetadata)
         video.addEventListener('progress', updateBuffered)
+        video.addEventListener('waiting', handleWaiting)
+        video.addEventListener('stalled', handleWaiting)
+        video.addEventListener('seeking', handleSeeking)
+        video.addEventListener('seeked', handleSeeked)
+        video.addEventListener('canplay', handleCanPlay)
+        video.addEventListener('playing', handlePlaying)
+        video.addEventListener('play', handlePlay)
+        video.addEventListener('pause', handlePause)
+        video.addEventListener('ended', handleEnded)
 
         return () => {
             video.removeEventListener('timeupdate', updateProgress)
             video.removeEventListener('loadedmetadata', handleLoadedMetadata)
             video.removeEventListener('progress', updateBuffered)
+            video.removeEventListener('waiting', handleWaiting)
+            video.removeEventListener('stalled', handleWaiting)
+            video.removeEventListener('seeking', handleSeeking)
+            video.removeEventListener('seeked', handleSeeked)
+            video.removeEventListener('canplay', handleCanPlay)
+            video.removeEventListener('playing', handlePlaying)
+            video.removeEventListener('play', handlePlay)
+            video.removeEventListener('pause', handlePause)
+            video.removeEventListener('ended', handleEnded)
         }
     }, [currentVideo, volume, isMuted])
+
+    useEffect(() => {
+        if (!isFullscreen) {
+            setShowControls(true)
+            return
+        }
+        if (!isPlaying || isDragging || isProgressHovered) {
+            setShowControls(true)
+            return
+        }
+        const timer = window.setTimeout(() => {
+            setShowControls(false)
+        }, 2200)
+        return () => window.clearTimeout(timer)
+    }, [isFullscreen, isPlaying, isDragging, isProgressHovered, currentTime])
+
+    useEffect(() => {
+        const onFullscreenChange = () => {
+            const shell = playerShellRef.current
+            setIsFullscreen(!!shell && document.fullscreenElement === shell)
+            setShowControls(true)
+        }
+        document.addEventListener('fullscreenchange', onFullscreenChange)
+        return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
+    }, [])
+
+    useEffect(() => {
+        const video = videoRef.current
+        if (!video) return
+        setPipSupported(typeof document !== 'undefined' && document.pictureInPictureEnabled)
+        const onEnterPiP = () => setIsPictureInPicture(true)
+        const onLeavePiP = () => setIsPictureInPicture(false)
+        video.addEventListener('enterpictureinpicture', onEnterPiP)
+        video.addEventListener('leavepictureinpicture', onLeavePiP)
+        return () => {
+            video.removeEventListener('enterpictureinpicture', onEnterPiP)
+            video.removeEventListener('leavepictureinpicture', onLeavePiP)
+        }
+    }, [currentVideo])
+
+    useEffect(() => {
+        if (!currentVideo || !('mediaSession' in navigator)) return
+        navigator.mediaSession.metadata = new MediaMetadata({
+            title: currentVideo.title,
+            artist: 'MoshAvi',
+            album: 'Past Sets',
+            artwork: currentVideo.poster ? [{ src: currentVideo.poster }] : undefined,
+        })
+        navigator.mediaSession.setActionHandler('play', () => {
+            const video = videoRef.current
+            if (!video) return
+            void video.play()
+        })
+        navigator.mediaSession.setActionHandler('pause', () => {
+            videoRef.current?.pause()
+        })
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+            const amount = details.seekOffset ?? SKIP_SECONDS
+            seekBy(-amount, 'mediaSession')
+        })
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+            const amount = details.seekOffset ?? SKIP_SECONDS
+            seekBy(amount, 'mediaSession')
+        })
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+            if (typeof details.seekTime === 'number') {
+                seekTo(details.seekTime, 'mediaSession')
+            }
+        })
+        return () => {
+            navigator.mediaSession.setActionHandler('play', null)
+            navigator.mediaSession.setActionHandler('pause', null)
+            navigator.mediaSession.setActionHandler('seekbackward', null)
+            navigator.mediaSession.setActionHandler('seekforward', null)
+            navigator.mediaSession.setActionHandler('seekto', null)
+        }
+    }, [currentVideo, seekBy, seekTo])
+
+    useEffect(() => {
+        return () => {
+            if (skipFeedbackTimerRef.current) {
+                window.clearTimeout(skipFeedbackTimerRef.current)
+            }
+        }
+    }, [])
 
     const handleVideoClick = () => {
         if (didDragRef.current) {
             didDragRef.current = false
             return
         }
-        const video = videoRef.current
-        if (!video) return
-
-        if (isPlaying) {
-            video.pause()
-        } else {
-            video.play()
-        }
-        setIsPlaying(!isPlaying)
+        togglePlayback()
     }
 
-    const getProgressPosition = (clientX: number) => {
+    const getProgressPosition = (clientX: number, clientY?: number) => {
         const progressBar = progressRef.current
         const video = videoRef.current
         if (!progressBar || !video || !video.duration) return { pos: 0, time: 0 }
         const rect = progressBar.getBoundingClientRect()
-        const pos = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width))
+        const rawPos = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width))
+        let pos = rawPos
+        const scrubSession = scrubSessionRef.current
+        if (typeof clientY === 'number' && scrubSession) {
+            const deltaY = Math.abs(clientY - scrubSession.startY)
+            if (deltaY > FINE_SCRUB_Y_THRESHOLD) {
+                pos = Math.min(1, Math.max(0, scrubSession.startPos + (rawPos - scrubSession.startPos) * FINE_SCRUB_FACTOR))
+                setIsFineScrubbing(true)
+            } else {
+                setIsFineScrubbing(false)
+            }
+        }
         return { pos, time: pos * video.duration }
     }
 
     const handleProgressMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-        const { time } = getProgressPosition(e.clientX)
+        const { pos, time } = getProgressPosition(e.clientX)
         setProgressHoverTime(time)
+        setScrubPreviewPos(pos)
     }
 
     const handleProgressMouseLeave = () => {
         setIsProgressHovered(false)
         setProgressHoverTime(null)
+        if (!isDragging) {
+            setScrubPreviewPos(null)
+        }
     }
 
-    const handleProgressMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+    const beginScrub = (clientX: number, clientY: number) => {
+        const { pos, time } = getProgressPosition(clientX, clientY)
+        setIsDragging(true)
+        setScrubPreviewPos(pos)
+        setScrubPreviewTime(time)
+        didDragRef.current = false
+        scrubSessionRef.current = { startPos: pos, startY: clientY }
+        seekTo(time, 'drag')
+    }
+
+    const updateScrub = (clientX: number, clientY: number) => {
+        const { pos, time } = getProgressPosition(clientX, clientY)
+        setScrubPreviewPos(pos)
+        setScrubPreviewTime(time)
+        didDragRef.current = true
+        seekTo(time, 'drag')
+    }
+
+    const endScrub = () => {
+        setIsDragging(false)
+        setIsFineScrubbing(false)
+        scrubSessionRef.current = null
+        setProgressHoverTime(null)
+    }
+
+    const handleProgressPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
         e.preventDefault()
-        const video = videoRef.current
-        if (!video) return
-        didDragRef.current = false
-        setIsDragging(true)
-        const { pos, time } = getProgressPosition(e.clientX)
-        video.currentTime = time
-        setProgress(pos * 100)
-        setCurrentTime(time)
-
-        const onMouseMove = (moveEvent: MouseEvent) => {
-            didDragRef.current = true
-            const { pos: movePos, time: moveTime } = getProgressPosition(moveEvent.clientX)
-            video.currentTime = moveTime
-            setProgress(movePos * 100)
-            setCurrentTime(moveTime)
+        e.stopPropagation()
+        notifyInteraction()
+        beginScrub(e.clientX, e.clientY)
+        const onPointerMove = (moveEvent: PointerEvent) => {
+            updateScrub(moveEvent.clientX, moveEvent.clientY)
         }
-        const onMouseUp = () => {
-            setIsDragging(false)
-            document.removeEventListener('mousemove', onMouseMove)
-            document.removeEventListener('mouseup', onMouseUp)
+        const onPointerUp = () => {
+            endScrub()
+            document.removeEventListener('pointermove', onPointerMove)
+            document.removeEventListener('pointerup', onPointerUp)
         }
-        document.addEventListener('mousemove', onMouseMove)
-        document.addEventListener('mouseup', onMouseUp)
+        document.addEventListener('pointermove', onPointerMove)
+        document.addEventListener('pointerup', onPointerUp)
     }
 
-    const handleProgressTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-        const video = videoRef.current
-        if (!video || e.touches.length === 0) return
-        didDragRef.current = false
-        setIsDragging(true)
-        const { pos, time } = getProgressPosition(e.touches[0].clientX)
-        video.currentTime = time
-        setProgress(pos * 100)
-        setCurrentTime(time)
+    const handleProgressKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        if (!duration) return
+        notifyInteraction()
+        if (e.key === 'ArrowRight') {
+            e.preventDefault()
+            seekBy(e.shiftKey ? 1 : KEYBOARD_SEEK_SECONDS, 'keyboard')
+        } else if (e.key === 'ArrowLeft') {
+            e.preventDefault()
+            seekBy(e.shiftKey ? -1 : -KEYBOARD_SEEK_SECONDS, 'keyboard')
+        } else if (e.key === 'Home') {
+            e.preventDefault()
+            seekTo(0, 'keyboard')
+        } else if (e.key === 'End') {
+            e.preventDefault()
+            seekTo(duration, 'keyboard')
+        }
+    }
 
-        const onTouchMove = (moveEvent: TouchEvent) => {
-            if (moveEvent.touches.length === 0) return
-            didDragRef.current = true
-            const { pos: movePos, time: moveTime } = getProgressPosition(moveEvent.touches[0].clientX)
-            video.currentTime = moveTime
-            setProgress(movePos * 100)
-            setCurrentTime(moveTime)
+    const handleDoubleTapSeek = (direction: 'backward' | 'forward') => (e: React.PointerEvent<HTMLButtonElement>) => {
+        e.preventDefault()
+        e.stopPropagation()
+        notifyInteraction()
+        const now = Date.now()
+        const lastTap = direction === 'backward' ? leftTapAtRef.current : rightTapAtRef.current
+        if (now - lastTap <= DOUBLE_TAP_MS) {
+            if (direction === 'backward') {
+                seekBy(-SKIP_SECONDS, 'doubleTap')
+                leftTapAtRef.current = 0
+            } else {
+                seekBy(SKIP_SECONDS, 'doubleTap')
+                rightTapAtRef.current = 0
+            }
+            indicateSkip(direction)
+            if ('vibrate' in navigator) {
+                navigator.vibrate(14)
+            }
+            return
         }
-        const onTouchEnd = () => {
-            setIsDragging(false)
-            document.removeEventListener('touchmove', onTouchMove)
-            document.removeEventListener('touchend', onTouchEnd)
+        if (direction === 'backward') {
+            leftTapAtRef.current = now
+        } else {
+            rightTapAtRef.current = now
         }
-        document.addEventListener('touchmove', onTouchMove, { passive: true })
-        document.addEventListener('touchend', onTouchEnd)
     }
 
     const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -202,6 +427,7 @@ export default function SetsClient() {
     const toggleMute = () => {
         const video = videoRef.current
         if (!video) return
+        notifyInteraction()
 
         if (isMuted) {
             const newVolume = lastVolume > 0 ? lastVolume : 0.7
@@ -215,6 +441,68 @@ export default function SetsClient() {
             video.volume = 0
             video.muted = true
             setIsMuted(true)
+        }
+    }
+
+    const toggleFullscreen = async () => {
+        notifyInteraction()
+        const shell = playerShellRef.current
+        if (!shell) return
+        if (document.fullscreenElement === shell) {
+            await document.exitFullscreen()
+            return
+        }
+        await shell.requestFullscreen()
+    }
+
+    const togglePictureInPicture = async () => {
+        notifyInteraction()
+        const video = videoRef.current
+        if (!video || !document.pictureInPictureEnabled) return
+        if (document.pictureInPictureElement) {
+            await document.exitPictureInPicture()
+            return
+        }
+        await video.requestPictureInPicture()
+    }
+
+    const handlePlayerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+        const target = e.target as HTMLElement
+        if (target.tagName === 'INPUT') return
+        if (!videoRef.current) return
+        notifyInteraction()
+        switch (e.key.toLowerCase()) {
+            case ' ':
+            case 'k':
+                e.preventDefault()
+                togglePlayback()
+                break
+            case 'j':
+                e.preventDefault()
+                seekBy(-SKIP_SECONDS, 'keyboard')
+                break
+            case 'l':
+                e.preventDefault()
+                seekBy(SKIP_SECONDS, 'keyboard')
+                break
+            case 'arrowleft':
+                e.preventDefault()
+                seekBy(-KEYBOARD_SEEK_SECONDS, 'keyboard')
+                break
+            case 'arrowright':
+                e.preventDefault()
+                seekBy(KEYBOARD_SEEK_SECONDS, 'keyboard')
+                break
+            case 'm':
+                e.preventDefault()
+                toggleMute()
+                break
+            case 'f':
+                e.preventDefault()
+                void toggleFullscreen()
+                break
+            default:
+                break
         }
     }
 
@@ -237,6 +525,10 @@ export default function SetsClient() {
         setProgress(0)
         setCurrentTime(0)
         setIsMuted(false)
+        setIsBuffering(false)
+        setIsSeeking(false)
+        setIsPictureInPicture(false)
+        setShowControls(true)
         if (!isIOS) {
             setVolume(0.7)
             setLastVolume(0.7)
@@ -251,13 +543,35 @@ export default function SetsClient() {
                 {/* Video Player */}
                 <div className="w-full md:w-2/3">
                     {currentVideo && (
-                        <div className="bg-gray-900 rounded-lg overflow-hidden">
+                        <div
+                            ref={playerShellRef}
+                            className={`bg-gray-900 rounded-lg overflow-hidden ${isFullscreen ? 'w-full h-full flex flex-col justify-center bg-black' : ''}`}
+                            onPointerMove={notifyInteraction}
+                            onPointerDown={notifyInteraction}
+                            onKeyDown={handlePlayerKeyDown}
+                            tabIndex={0}
+                            aria-label="Sets video player"
+                        >
                             <div
-                                className="relative aspect-video cursor-pointer"
+                                className={`relative aspect-video ${showControls || !isFullscreen ? 'cursor-pointer' : 'cursor-none'}`}
                                 onClick={handleVideoClick}
                                 onMouseEnter={() => setIsVideoHovered(true)}
                                 onMouseLeave={() => setIsVideoHovered(false)}
                             >
+                                <button
+                                    type="button"
+                                    className="absolute inset-y-0 left-0 w-1/3 z-20 bg-transparent"
+                                    aria-label={`Double tap left side to skip back ${SKIP_SECONDS} seconds`}
+                                    onPointerUp={handleDoubleTapSeek('backward')}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                />
+                                <button
+                                    type="button"
+                                    className="absolute inset-y-0 right-0 w-1/3 z-20 bg-transparent"
+                                    aria-label={`Double tap right side to skip forward ${SKIP_SECONDS} seconds`}
+                                    onPointerUp={handleDoubleTapSeek('forward')}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                />
                                 <video
                                     ref={videoRef}
                                     src={currentVideo.src}
@@ -268,9 +582,26 @@ export default function SetsClient() {
                                 >
                                     Your browser does not support the video tag.
                                 </video>
+                                {(isBuffering || isSeeking) && (
+                                    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/25 pointer-events-none">
+                                        <div className="w-10 h-10 rounded-full border-4 border-white/50 border-t-white animate-spin" aria-label="Buffering video" />
+                                    </div>
+                                )}
+                                {skipFeedback && (
+                                    <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
+                                        <div
+                                            key={skipFeedback.token}
+                                            className={`px-4 py-2 rounded-full bg-black/55 text-white font-medium text-sm ${
+                                                skipFeedback.direction === 'backward' ? '-translate-x-24' : 'translate-x-24'
+                                            }`}
+                                        >
+                                            {skipFeedback.direction === 'backward' ? `-${SKIP_SECONDS}s` : `+${SKIP_SECONDS}s`}
+                                        </div>
+                                    </div>
+                                )}
                                 {/* Hover overlay: show play when paused, pause when playing */}
-                                {(isVideoHovered || !isPlaying) && (
-                                    <div className={`absolute inset-0 flex items-center justify-center transition-opacity ${isVideoHovered && isPlaying ? 'bg-black/30' : 'bg-black/0'}`}>
+                                {(isVideoHovered || !isPlaying || !showControls) && (
+                                    <div className={`absolute inset-0 z-10 flex items-center justify-center transition-opacity ${isVideoHovered && isPlaying ? 'bg-black/30' : 'bg-black/0'}`}>
                                         <div className={`bg-white rounded-full transition-opacity ${isVideoHovered ? 'bg-opacity-30' : 'bg-opacity-20'} p-5 hover:bg-opacity-40`}>
                                             {isPlaying ? (
                                                 <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" fill="white" viewBox="0 0 16 16">
@@ -288,22 +619,40 @@ export default function SetsClient() {
                             </div>
 
                             {/* Custom controls */}
-                            <div className="p-4 bg-black bg-opacity-50">
+                            <div className={`p-4 bg-black/70 transition-opacity ${isFullscreen && !showControls ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
                                 <div className="relative mb-3 group">
                                     {/* Hover time tooltip */}
                                     {isProgressHovered && progressHoverTime !== null && !isDragging && (
-                                        <div className="absolute bottom-full left-0 mb-1 px-2 py-1 bg-black/90 rounded text-white text-xs whitespace-nowrap transform -translate-x-1/2" style={{ left: `${duration > 0 ? (progressHoverTime / duration) * 100 : 0}%` }}>
+                                        <div
+                                            className="absolute bottom-full left-0 mb-1 px-2 py-1 bg-black/90 rounded text-white text-xs whitespace-nowrap transform -translate-x-1/2"
+                                            style={{ left: `${getBubbleLeftPercent(duration > 0 ? progressHoverTime / duration : 0)}%` }}
+                                        >
                                             {formatTime(progressHoverTime)}
+                                        </div>
+                                    )}
+                                    {isDragging && scrubPreviewTime !== null && scrubPreviewPos !== null && (
+                                        <div
+                                            className="absolute bottom-full left-0 mb-2 px-2 py-1 bg-black rounded text-white text-xs whitespace-nowrap transform -translate-x-1/2 border border-white/20"
+                                            style={{ left: `${getBubbleLeftPercent(scrubPreviewPos)}%` }}
+                                        >
+                                            {formatTime(scrubPreviewTime)}
                                         </div>
                                     )}
                                     <div
                                         ref={progressRef}
-                                        className={`relative w-full h-2 rounded cursor-pointer transition-all ${isProgressHovered || isDragging ? 'h-2.5' : ''} bg-gray-700`}
-                                        onMouseDown={handleProgressMouseDown}
-                                        onTouchStart={handleProgressTouchStart}
+                                        className={`relative w-full rounded cursor-pointer transition-all touch-none ${isProgressHovered || isDragging ? 'h-3' : 'h-2'} bg-gray-700`}
+                                        role="slider"
+                                        tabIndex={0}
+                                        aria-label="Seek video timeline"
+                                        aria-valuemin={0}
+                                        aria-valuemax={Math.floor(duration)}
+                                        aria-valuenow={Math.floor(currentTime)}
+                                        aria-valuetext={`${formatTime(currentTime)} of ${formatTime(duration)}`}
+                                        onPointerDown={handleProgressPointerDown}
                                         onMouseEnter={() => { setIsProgressHovered(true); }}
                                         onMouseMove={handleProgressMouseMove}
                                         onMouseLeave={handleProgressMouseLeave}
+                                        onKeyDown={handleProgressKeyDown}
                                     >
                                         {/* Buffered segment */}
                                         <div
@@ -317,10 +666,15 @@ export default function SetsClient() {
                                         />
                                         {/* Thumb */}
                                         <div
-                                            className="absolute top-1/2 w-3 h-3 -mt-1.5 rounded-full bg-white shadow cursor-grab active:cursor-grabbing"
-                                            style={{ left: `calc(${progress}% - 6px)` }}
+                                            className={`absolute top-1/2 rounded-full bg-white shadow cursor-grab active:cursor-grabbing transition-all ${
+                                                isDragging ? 'w-6 h-6 -mt-3 border-2 border-purple-400' : 'w-3.5 h-3.5 -mt-[7px]'
+                                            }`}
+                                            style={{ left: `calc(${progress}% - ${isDragging ? '12px' : '7px'})` }}
                                         />
                                     </div>
+                                    {isFineScrubbing && (
+                                        <div className="text-[11px] text-gray-300 mt-1">Fine scrubbing</div>
+                                    )}
                                 </div>
 
                                 <div className="flex items-center justify-between">
@@ -335,6 +689,26 @@ export default function SetsClient() {
                                                     <path d="m11.596 8.697-6.363 3.692c-.54.313-1.233-.066-1.233-.697V4.308c0-.63.692-1.01 1.233-.696l6.363 3.692a.802.802 0 0 1 0 1.393z" />
                                                 </svg>
                                             )}
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                seekBy(-SKIP_SECONDS, 'button')
+                                                indicateSkip('backward')
+                                            }}
+                                            className="text-white hover:text-gray-300 focus-ring rounded p-1 text-xs"
+                                            aria-label={`Skip backward ${SKIP_SECONDS} seconds`}
+                                        >
+                                            -{SKIP_SECONDS}s
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                seekBy(SKIP_SECONDS, 'button')
+                                                indicateSkip('forward')
+                                            }}
+                                            className="text-white hover:text-gray-300 focus-ring rounded p-1 text-xs"
+                                            aria-label={`Skip forward ${SKIP_SECONDS} seconds`}
+                                        >
+                                            +{SKIP_SECONDS}s
                                         </button>
 
                                         {/* Volume Control */}
@@ -366,8 +740,23 @@ export default function SetsClient() {
                                         </div>
                                     </div>
 
-                                    <div className="text-sm text-white">
-                                        {formatTime(currentTime)} / {formatTime(duration)}
+                                    <div className="flex items-center gap-2 text-sm text-white">
+                                        <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
+                                        <button
+                                            onClick={() => void togglePictureInPicture()}
+                                            className="text-white hover:text-gray-300 focus-ring rounded p-1"
+                                            aria-label={isPictureInPicture ? 'Exit picture in picture' : 'Enter picture in picture'}
+                                            disabled={!pipSupported}
+                                        >
+                                            {isPictureInPicture ? 'PiP Off' : 'PiP'}
+                                        </button>
+                                        <button
+                                            onClick={() => void toggleFullscreen()}
+                                            className="text-white hover:text-gray-300 focus-ring rounded p-1"
+                                            aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                                        >
+                                            {isFullscreen ? 'Exit Full' : 'Full'}
+                                        </button>
                                     </div>
                                 </div>
                             </div>
