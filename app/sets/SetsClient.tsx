@@ -535,6 +535,8 @@ export default function SetsClient() {
         }
     }
 
+    const clampedProgress = Math.min(100, Math.max(0, progress))
+
     return (
         <main className="min-h-screen p-2 md:p-4 max-w-content-wide mx-auto">
             <h1 className="text-3xl mb-6 font-poiret-one text-center md:text-left">Past Sets</h1>
@@ -640,7 +642,7 @@ export default function SetsClient() {
                                     )}
                                     <div
                                         ref={progressRef}
-                                        className={`relative w-full rounded cursor-pointer transition-all touch-none ${isProgressHovered || isDragging ? 'h-3' : 'h-2'} bg-gray-700`}
+                                        className={`relative w-full overflow-hidden rounded-full cursor-pointer transition-all touch-none ${isProgressHovered || isDragging ? 'h-3' : 'h-2'} bg-gray-700`}
                                         role="slider"
                                         tabIndex={0}
                                         aria-label="Seek video timeline"
@@ -656,20 +658,20 @@ export default function SetsClient() {
                                     >
                                         {/* Buffered segment */}
                                         <div
-                                            className="absolute inset-0 rounded bg-gray-600"
+                                            className="absolute inset-y-0 left-0 bg-gray-600"
                                             style={{ width: `${bufferedPercent}%` }}
                                         />
                                         {/* Progress fill */}
                                         <div
-                                            className="absolute inset-y-0 left-0 rounded bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600"
-                                            style={{ width: `${progress}%` }}
+                                            className={`absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600 ${clampedProgress >= 99.5 ? 'rounded-r-full' : ''}`}
+                                            style={{ width: `${clampedProgress}%` }}
                                         />
                                         {/* Thumb */}
                                         <div
                                             className={`absolute top-1/2 rounded-full bg-white shadow cursor-grab active:cursor-grabbing transition-all ${
-                                                isDragging ? 'w-6 h-6 -mt-3 border-2 border-purple-400' : 'w-3.5 h-3.5 -mt-[7px]'
+                                                isDragging ? 'w-5 h-5 border-2 border-purple-400' : 'w-3.5 h-3.5'
                                             }`}
-                                            style={{ left: `calc(${progress}% - ${isDragging ? '12px' : '7px'})` }}
+                                            style={{ left: `${clampedProgress}%`, transform: 'translate(-50%, -50%)' }}
                                         />
                                     </div>
                                     {isFineScrubbing && (
@@ -744,18 +746,35 @@ export default function SetsClient() {
                                         <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
                                         <button
                                             onClick={() => void togglePictureInPicture()}
-                                            className="text-white hover:text-gray-300 focus-ring rounded p-1"
+                                            className="text-white hover:text-gray-300 focus-ring rounded p-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
                                             aria-label={isPictureInPicture ? 'Exit picture in picture' : 'Enter picture in picture'}
                                             disabled={!pipSupported}
                                         >
-                                            {isPictureInPicture ? 'PiP Off' : 'PiP'}
+                                            {isPictureInPicture ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                    <path d="M1.5 3A1.5 1.5 0 0 1 3 1.5h10A1.5 1.5 0 0 1 14.5 3v10a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 13V3zm1 0a.5.5 0 0 0-.5.5v6h12v-6a.5.5 0 0 0-.5-.5H2.5zm11.5 10.5a.5.5 0 0 0 .5-.5V10.5H2V13a.5.5 0 0 0 .5.5h11z" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                    <path d="M1.5 3A1.5 1.5 0 0 1 3 1.5h10A1.5 1.5 0 0 1 14.5 3v10a1.5 1.5 0 0 1-1.5 1.5H3A1.5 1.5 0 0 1 1.5 13V3zm1 0a.5.5 0 0 0-.5.5v8.75c0 .138.112.25.25.25H13.5a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5H2.5z" />
+                                                    <path d="M9.5 8a.5.5 0 0 1 .5-.5h3v3a.5.5 0 0 1-1 0V9.707l-2.146 2.147a.5.5 0 1 1-.708-.708L11.293 9H10a.5.5 0 0 1-.5-.5z" />
+                                                </svg>
+                                            )}
                                         </button>
                                         <button
                                             onClick={() => void toggleFullscreen()}
-                                            className="text-white hover:text-gray-300 focus-ring rounded p-1"
+                                            className="text-white hover:text-gray-300 focus-ring rounded p-1.5"
                                             aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
                                         >
-                                            {isFullscreen ? 'Exit Full' : 'Full'}
+                                            {isFullscreen ? (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                    <path d="M2 10.5a.5.5 0 0 1 .5-.5H5a.5.5 0 0 1 0 1H3v2a.5.5 0 0 1-1 0v-2.5zm9 0a.5.5 0 0 1 .5-.5H14a.5.5 0 0 1 0 1h-2v2a.5.5 0 0 1-1 0v-2.5zM2.5 2A.5.5 0 0 0 2 2.5V5a.5.5 0 0 0 1 0V3h2a.5.5 0 0 0 0-1H2.5zM11 2.5a.5.5 0 0 1 .5-.5H14a.5.5 0 0 1 0 1h-2v2a.5.5 0 0 1-1 0V2.5z" />
+                                                </svg>
+                                            ) : (
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                                                    <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1H5a.5.5 0 0 1 0 1H2.5a.5.5 0 0 0-.5.5V5a.5.5 0 0 1-1 0V2.5zM11 1.5a.5.5 0 0 1 .5-.5H14a1.5 1.5 0 0 1 1.5 1.5V5a.5.5 0 0 1-1 0V2.5a.5.5 0 0 0-.5-.5h-2.5a.5.5 0 0 1-.5-.5zM1.5 11a.5.5 0 0 1 .5.5V14a.5.5 0 0 0 .5.5H5a.5.5 0 0 1 0 1H2.5A1.5 1.5 0 0 1 1 14v-2.5a.5.5 0 0 1 .5-.5zm13 0a.5.5 0 0 1 .5.5V14a1.5 1.5 0 0 1-1.5 1.5h-2.5a.5.5 0 0 1 0-1H13.5a.5.5 0 0 0 .5-.5v-2.5a.5.5 0 0 1 .5-.5z" />
+                                                </svg>
+                                            )}
                                         </button>
                                     </div>
                                 </div>
