@@ -2,20 +2,8 @@ import db from '../database';
 
 (async () => {
     try {
-        db.exec('DELETE FROM carousel_images');
         db.exec('DELETE FROM video_sets');
         db.exec('DELETE FROM playlists');
-
-        const carouselStmt = db.prepare('INSERT INTO carousel_images (src, alt, width, height) VALUES (?, ?, ?, ?)');
-        const carouselImages = [
-            { src: '/media/carousel/party-pic-1.jpg', alt: 'Party Pic 1', width: 1200, height: 800 },
-            { src: '/media/carousel/party-pic-2.jpg', alt: 'Party Pic 2', width: 1200, height: 800 },
-            { src: '/media/carousel/party-pic-3.jpg', alt: 'Party Pic 3', width: 1200, height: 800 },
-            { src: '/media/carousel/party-pic-4.jpg', alt: 'Party Pic 4', width: 1200, height: 800 },
-        ];
-        for (const image of carouselImages) {
-            carouselStmt.run(image.src, image.alt, image.width, image.height);
-        }
 
         const videoSetsStmt = db.prepare('INSERT INTO video_sets (title, date, src, poster) VALUES (?, ?, ?, ?)');
         const videoSets = [
