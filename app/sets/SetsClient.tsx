@@ -537,6 +537,8 @@ export default function SetsClient() {
 
     const clampedProgress = Math.min(100, Math.max(0, progress))
     const clampedBuffered = Math.min(100, Math.max(0, bufferedPercent))
+    const thumbSizePx = isDragging ? 20 : 16
+    const progressFillWidth = `calc(${clampedProgress}% + ${thumbSizePx / 2}px)`
 
     return (
         <main className="min-h-screen p-2 md:p-4 max-w-content-wide mx-auto">
@@ -670,13 +672,13 @@ export default function SetsClient() {
                                             {/* Progress fill */}
                                             <div
                                                 className={`absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600 ${clampedProgress >= 99.5 ? 'rounded-r-full' : ''}`}
-                                                style={{ width: `${clampedProgress}%` }}
+                                                style={{ width: progressFillWidth, maxWidth: '100%' }}
                                             />
                                         </div>
 
                                         {/* Thumb sits outside clipped track to stay perfectly circular */}
                                         <div
-                                            className={`absolute top-1/2 rounded-full bg-white border border-black/10 shadow-[0_0_0_2px_rgba(255,255,255,0.2)] cursor-grab active:cursor-grabbing transition-all ${
+                                            className={`absolute top-1/2 rounded-full bg-white border border-black/10 shadow-[0_0_0_2px_rgba(255,255,255,0.2)] cursor-grab active:cursor-grabbing transition-[width,height] ${
                                                 isDragging ? 'w-5 h-5' : 'w-4 h-4'
                                             }`}
                                             style={{ left: `${clampedProgress}%`, transform: 'translate(-50%, -50%)' }}
