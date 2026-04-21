@@ -138,6 +138,9 @@ export default function SetsClient() {
                 setProgress((video.currentTime / video.duration) * 100)
                 setCurrentTime(video.currentTime)
             }
+            if (!video.paused && video.readyState >= 3) {
+                setIsBuffering(false)
+            }
             if (!video.seeking) {
                 setIsSeeking(false)
             }
@@ -163,7 +166,11 @@ export default function SetsClient() {
             updateBuffered()
         }
 
-        const handleWaiting = () => setIsBuffering(true)
+        const handleWaiting = () => {
+            if (!video.paused) {
+                setIsBuffering(true)
+            }
+        }
         const handlePlaying = () => {
             setIsBuffering(false)
             setIsSeeking(false)
@@ -601,7 +608,9 @@ export default function SetsClient() {
     const clampedProgress = Math.min(100, Math.max(0, progress))
     const clampedBuffered = Math.min(100, Math.max(0, bufferedPercent))
     const thumbSizePx = isDragging ? 20 : 16
-    const progressFillWidth = `calc(${clampedProgress}% + ${thumbSizePx / 2}px)`
+    const fillNudgePx = clampedProgress > 0 && clampedProgress < 100 ? Math.max(0, thumbSizePx / 2 - 2) : 0
+    const progressFillWidth = `calc(${clampedProgress}% + ${fillNudgePx}px)`
+    const progressFillMaxWidth = clampedProgress >= 99.5 ? '100%' : 'calc(100% - 1px)'
 
     return (
         <main className="min-h-screen p-2 md:p-4 max-w-content-wide mx-auto">
@@ -660,16 +669,16 @@ export default function SetsClient() {
                                     <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none">
                                         <div
                                             key={skipFeedback.token}
-                                            className={`px-4 py-2 rounded-full bg-black/55 text-white font-medium text-sm ${
-                                                skipFeedback.direction === 'backward' ? '-translate-x-24' : 'translate-x-24'
+                                            className={`px-6 py-4 rounded-2xl border border-white/35 bg-black/70 backdrop-blur-sm text-white font-bold text-2xl tracking-wide shadow-2xl animate-pulse ${
+                                                skipFeedback.direction === 'backward' ? '-translate-x-24 md:-translate-x-32' : 'translate-x-24 md:translate-x-32'
                                             }`}
                                         >
-                                            {skipFeedback.direction === 'backward' ? `-${SKIP_SECONDS}s` : `+${SKIP_SECONDS}s`}
+                                            {skipFeedback.direction === 'backward' ? `<< ${SKIP_SECONDS}s` : `${SKIP_SECONDS}s >>`}
                                         </div>
                                     </div>
                                 )}
                                 {/* Hover overlay: show play when paused, pause when playing */}
-                                {(isVideoHovered || !isPlaying || !showControls) && (
+                                {(isVideoHovered || !isPlaying) && (
                                     <div className={`absolute inset-0 z-10 flex items-center justify-center transition-opacity ${isVideoHovered && isPlaying ? 'bg-black/30' : 'bg-black/0'}`}>
                                         <div className={`bg-white rounded-full transition-opacity ${isVideoHovered ? 'bg-opacity-30' : 'bg-opacity-20'} p-5 hover:bg-opacity-40`}>
                                             {isPlaying ? (
@@ -736,7 +745,7 @@ export default function SetsClient() {
                                             {/* Progress fill */}
                                             <div
                                                 className={`absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600 ${clampedProgress >= 99.5 ? 'rounded-r-full' : ''}`}
-                                                style={{ width: progressFillWidth, maxWidth: '100%' }}
+                                                style={{ width: progressFillWidth, maxWidth: progressFillMaxWidth }}
                                             />
                                         </div>
 
@@ -816,8 +825,10 @@ export default function SetsClient() {
                                         </div>
                                     </div>
 
-                                    <div className="flex items-center gap-2 text-sm text-white">
-                                        <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
+                                    <div className="flex items-center gap-2 text-sm text-white shrink-0">
+                                        <span className="whitespace-nowrap tabular-nums leading-none min-w-[124px] text-right">
+                                            {formatTime(currentTime)} / {formatTime(duration)}
+                                        </span>
                                         <button
                                             onClick={() => void togglePictureInPicture()}
                                             className="text-white/90 hover:text-white hover:bg-white/10 focus-ring rounded p-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
