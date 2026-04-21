@@ -536,6 +536,7 @@ export default function SetsClient() {
     }
 
     const clampedProgress = Math.min(100, Math.max(0, progress))
+    const clampedBuffered = Math.min(100, Math.max(0, bufferedPercent))
 
     return (
         <main className="min-h-screen p-2 md:p-4 max-w-content-wide mx-auto">
@@ -642,7 +643,7 @@ export default function SetsClient() {
                                     )}
                                     <div
                                         ref={progressRef}
-                                        className={`relative w-full overflow-hidden rounded-full cursor-pointer transition-all touch-none ${isProgressHovered || isDragging ? 'h-3' : 'h-2'} bg-gray-700`}
+                                        className="relative w-full cursor-pointer touch-none py-1.5"
                                         role="slider"
                                         tabIndex={0}
                                         aria-label="Seek video timeline"
@@ -656,20 +657,27 @@ export default function SetsClient() {
                                         onMouseLeave={handleProgressMouseLeave}
                                         onKeyDown={handleProgressKeyDown}
                                     >
-                                        {/* Buffered segment */}
                                         <div
-                                            className="absolute inset-y-0 left-0 bg-gray-600"
-                                            style={{ width: `${bufferedPercent}%` }}
-                                        />
-                                        {/* Progress fill */}
+                                            className={`relative w-full overflow-hidden rounded-full bg-gray-700 transition-all ${
+                                                isProgressHovered || isDragging ? 'h-3.5' : 'h-2.5'
+                                            }`}
+                                        >
+                                            {/* Buffered segment */}
+                                            <div
+                                                className="absolute inset-y-0 left-0 bg-gray-500/90"
+                                                style={{ width: `${clampedBuffered}%` }}
+                                            />
+                                            {/* Progress fill */}
+                                            <div
+                                                className={`absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600 ${clampedProgress >= 99.5 ? 'rounded-r-full' : ''}`}
+                                                style={{ width: `${clampedProgress}%` }}
+                                            />
+                                        </div>
+
+                                        {/* Thumb sits outside clipped track to stay perfectly circular */}
                                         <div
-                                            className={`absolute inset-y-0 left-0 bg-gradient-to-r from-yellow-300 via-purple-500 to-cyan-600 ${clampedProgress >= 99.5 ? 'rounded-r-full' : ''}`}
-                                            style={{ width: `${clampedProgress}%` }}
-                                        />
-                                        {/* Thumb */}
-                                        <div
-                                            className={`absolute top-1/2 rounded-full bg-white shadow cursor-grab active:cursor-grabbing transition-all ${
-                                                isDragging ? 'w-5 h-5 border-2 border-purple-400' : 'w-3.5 h-3.5'
+                                            className={`absolute top-1/2 rounded-full bg-white border border-black/10 shadow-[0_0_0_2px_rgba(255,255,255,0.2)] cursor-grab active:cursor-grabbing transition-all ${
+                                                isDragging ? 'w-5 h-5' : 'w-4 h-4'
                                             }`}
                                             style={{ left: `${clampedProgress}%`, transform: 'translate(-50%, -50%)' }}
                                         />
@@ -746,7 +754,7 @@ export default function SetsClient() {
                                         <span>{formatTime(currentTime)} / {formatTime(duration)}</span>
                                         <button
                                             onClick={() => void togglePictureInPicture()}
-                                            className="text-white hover:text-gray-300 focus-ring rounded p-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                                            className="text-white/90 hover:text-white hover:bg-white/10 focus-ring rounded p-1.5 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                             aria-label={isPictureInPicture ? 'Exit picture in picture' : 'Enter picture in picture'}
                                             disabled={!pipSupported}
                                         >
@@ -763,7 +771,7 @@ export default function SetsClient() {
                                         </button>
                                         <button
                                             onClick={() => void toggleFullscreen()}
-                                            className="text-white hover:text-gray-300 focus-ring rounded p-1.5"
+                                            className="text-white/90 hover:text-white hover:bg-white/10 focus-ring rounded p-1.5 transition-colors"
                                             aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
                                         >
                                             {isFullscreen ? (
