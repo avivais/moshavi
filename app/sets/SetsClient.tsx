@@ -48,6 +48,7 @@ export default function SetsClient() {
     const rightTapAtRef = useRef(0)
     const skipFeedbackTimerRef = useRef<number | null>(null)
     const scrubSessionRef = useRef<{ startPos: number; startY: number } | null>(null)
+    const seekRecoveryTimerRef = useRef<number | null>(null)
 
     const videoRef = useRef<HTMLVideoElement>(null)
     const progressRef = useRef<HTMLDivElement>(null)
@@ -137,6 +138,9 @@ export default function SetsClient() {
                 setProgress((video.currentTime / video.duration) * 100)
                 setCurrentTime(video.currentTime)
             }
+            if (!video.seeking) {
+                setIsSeeking(false)
+            }
         }
 
         const updateBuffered = () => {
@@ -164,11 +168,26 @@ export default function SetsClient() {
             setIsBuffering(false)
             setIsSeeking(false)
         }
-        const handleCanPlay = () => setIsBuffering(false)
-        const handleSeeking = () => setIsSeeking(true)
+        const handleCanPlay = () => {
+            setIsBuffering(false)
+            setIsSeeking(false)
+        }
+        const handleSeeking = () => {
+            setIsSeeking(true)
+            if (seekRecoveryTimerRef.current) {
+                window.clearTimeout(seekRecoveryTimerRef.current)
+            }
+            seekRecoveryTimerRef.current = window.setTimeout(() => {
+                setIsSeeking(false)
+            }, 1800)
+        }
         const handleSeeked = () => setIsSeeking(false)
         const handlePlay = () => setIsPlaying(true)
-        const handlePause = () => setIsPlaying(false)
+        const handlePause = () => {
+            setIsPlaying(false)
+            setIsSeeking(false)
+            setIsBuffering(false)
+        }
         const handleEnded = () => setIsPlaying(false)
 
         video.addEventListener('timeupdate', updateProgress)
@@ -179,6 +198,8 @@ export default function SetsClient() {
         video.addEventListener('seeking', handleSeeking)
         video.addEventListener('seeked', handleSeeked)
         video.addEventListener('canplay', handleCanPlay)
+        video.addEventListener('canplaythrough', handleCanPlay)
+        video.addEventListener('loadeddata', handleCanPlay)
         video.addEventListener('playing', handlePlaying)
         video.addEventListener('play', handlePlay)
         video.addEventListener('pause', handlePause)
@@ -193,6 +214,8 @@ export default function SetsClient() {
             video.removeEventListener('seeking', handleSeeking)
             video.removeEventListener('seeked', handleSeeked)
             video.removeEventListener('canplay', handleCanPlay)
+            video.removeEventListener('canplaythrough', handleCanPlay)
+            video.removeEventListener('loadeddata', handleCanPlay)
             video.removeEventListener('playing', handlePlaying)
             video.removeEventListener('play', handlePlay)
             video.removeEventListener('pause', handlePause)
@@ -224,6 +247,28 @@ export default function SetsClient() {
         document.addEventListener('fullscreenchange', onFullscreenChange)
         return () => document.removeEventListener('fullscreenchange', onFullscreenChange)
     }, [])
+
+    useEffect(() => {
+        const video = videoRef.current
+        if (!video) return
+        const onWebkitBeginFullscreen = () => setIsFullscreen(true)
+        const onWebkitEndFullscreen = () => {
+            setIsFullscreen(false)
+            setShowControls(true)
+        }
+        video.addEventListener('webkitbeginfullscreen', onWebkitBeginFullscreen as EventListener)
+        video.addEventListener('webkitendfullscreen', onWebkitEndFullscreen as EventListener)
+        return () => {
+            video.removeEventListener('webkitbeginfullscreen', onWebkitBeginFullscreen as EventListener)
+            video.removeEventListener('webkitendfullscreen', onWebkitEndFullscreen as EventListener)
+        }
+    }, [currentVideo])
+
+    useEffect(() => {
+        const video = videoRef.current
+        if (!video) return
+        video.load()
+    }, [currentVideo])
 
     useEffect(() => {
         const video = videoRef.current
@@ -281,6 +326,9 @@ export default function SetsClient() {
         return () => {
             if (skipFeedbackTimerRef.current) {
                 window.clearTimeout(skipFeedbackTimerRef.current)
+            }
+            if (seekRecoveryTimerRef.current) {
+                window.clearTimeout(seekRecoveryTimerRef.current)
             }
         }
     }, [])
@@ -447,12 +495,27 @@ export default function SetsClient() {
     const toggleFullscreen = async () => {
         notifyInteraction()
         const shell = playerShellRef.current
-        if (!shell) return
-        if (document.fullscreenElement === shell) {
+        const video = videoRef.current
+        if (!shell && !video) return
+        if (shell && document.fullscreenElement === shell && document.exitFullscreen) {
             await document.exitFullscreen()
             return
         }
-        await shell.requestFullscreen()
+        const iosVideo = video as HTMLVideoElement & {
+            webkitEnterFullscreen?: () => void
+            webkitEnterFullScreen?: () => void
+        }
+        if (isIOS && video && (iosVideo.webkitEnterFullscreen || iosVideo.webkitEnterFullScreen)) {
+            ;(iosVideo.webkitEnterFullscreen ?? iosVideo.webkitEnterFullScreen)?.call(video)
+            return
+        }
+        if (shell?.requestFullscreen) {
+            await shell.requestFullscreen()
+            return
+        }
+        if (video?.requestFullscreen) {
+            await video.requestFullscreen()
+        }
     }
 
     const togglePictureInPicture = async () => {
@@ -582,12 +645,13 @@ export default function SetsClient() {
                                     src={currentVideo.src}
                                     poster={currentVideo.poster}
                                     className="w-full h-full object-contain"
+                                    preload="auto"
                                     playsInline
                                     muted={isMuted || (volume === 0 && !isIOS)}
                                 >
                                     Your browser does not support the video tag.
                                 </video>
-                                {(isBuffering || isSeeking) && (
+                                {(isBuffering || (isSeeking && (isPlaying || isDragging))) && (
                                     <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/25 pointer-events-none">
                                         <div className="w-10 h-10 rounded-full border-4 border-white/50 border-t-white animate-spin" aria-label="Buffering video" />
                                     </div>
