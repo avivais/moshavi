@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import { Suspense } from 'react'
 import SetsClient from './SetsClient'
 
 export const metadata: Metadata = {
@@ -28,5 +29,9 @@ export const metadata: Metadata = {
 }
 
 export default function Sets() {
-    return <SetsClient />
+    return (
+        <Suspense fallback={<main className="min-h-screen p-2 md:p-4 max-w-content-wide mx-auto" />}>
+            <SetsClient />
+        </Suspense>
+    )
 }
