@@ -186,6 +186,7 @@ ffmpeg -hide_banner -loglevel warning -stats -y \
   -loop 1 -i "$POSTER_JPG" -i "$AUDIO_MP3" \
   -c:v libx264 -tune stillimage -pix_fmt yuv420p \
   -c:a aac -b:a 192k \
+  -movflags +faststart \
   -shortest \
   "$OUT_MP4"
 
