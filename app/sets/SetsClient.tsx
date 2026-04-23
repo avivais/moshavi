@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
+import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
 interface VideoSet {
     id: number
@@ -53,9 +55,18 @@ export default function SetsClient() {
     const videoRef = useRef<HTMLVideoElement>(null)
     const progressRef = useRef<HTMLDivElement>(null)
     const playerShellRef = useRef<HTMLDivElement>(null)
+    const pathname = usePathname()
+    const router = useRouter()
+    const searchParams = useSearchParams()
 
     // Memoize the reversed video list unconditionally
     const memoizedVideoSets = useMemo(() => [...videoSets].reverse(), [videoSets])
+    const selectedSetId = useMemo(() => {
+        const setParam = searchParams.get('set')
+        if (!setParam) return null
+        const parsed = Number.parseInt(setParam, 10)
+        return Number.isNaN(parsed) ? null : parsed
+    }, [searchParams])
 
     useEffect(() => {
         // Fetch video sets from DB
@@ -65,11 +76,6 @@ export default function SetsClient() {
                 if (!res.ok) throw new Error(`Fetch failed: ${res.status}`)
                 const data = await res.json()
                 setVideoSets(data)
-                // Set the newest video (highest ID) as current by default
-                if (data.length > 0) {
-                    const newestVideo = [...data].sort((a, b) => b.id - a.id)[0]
-                    setCurrentVideo(newestVideo)
-                }
             } catch (err: unknown) {
                 const errorMessage = err instanceof Error ? err.message : 'Failed to load video sets'
                 console.error('Fetch error:', errorMessage)
@@ -78,6 +84,38 @@ export default function SetsClient() {
         }
         fetchVideoSets()
     }, [])
+
+    const resetPlayerState = useCallback(() => {
+        setIsPlaying(false)
+        setProgress(0)
+        setCurrentTime(0)
+        setIsMuted(false)
+        setIsBuffering(false)
+        setIsSeeking(false)
+        setIsPictureInPicture(false)
+        setShowControls(true)
+        if (!isIOS) {
+            setVolume(0.7)
+            setLastVolume(0.7)
+        }
+    }, [isIOS])
+
+    useEffect(() => {
+        if (videoSets.length === 0) return
+        if (selectedSetId !== null) {
+            const selectedVideo = videoSets.find((video) => video.id === selectedSetId)
+            if (selectedVideo && currentVideo?.id !== selectedVideo.id) {
+                setCurrentVideo(selectedVideo)
+                resetPlayerState()
+                return
+            }
+        }
+        const newestVideo = [...videoSets].sort((a, b) => b.id - a.id)[0]
+        if (!currentVideo && newestVideo) {
+            setCurrentVideo(newestVideo)
+            resetPlayerState()
+        }
+    }, [currentVideo, resetPlayerState, selectedSetId, videoSets])
 
     useEffect(() => {
         // Detect if the device is iOS
@@ -589,21 +627,16 @@ export default function SetsClient() {
         }
     }
 
-    const selectVideo = (video: VideoSet) => {
+    const selectVideo = useCallback((video: VideoSet, mode: 'push' | 'replace' = 'push') => {
+        if (currentVideo?.id === video.id) return
         setCurrentVideo(video)
-        setIsPlaying(false)
-        setProgress(0)
-        setCurrentTime(0)
-        setIsMuted(false)
-        setIsBuffering(false)
-        setIsSeeking(false)
-        setIsPictureInPicture(false)
-        setShowControls(true)
-        if (!isIOS) {
-            setVolume(0.7)
-            setLastVolume(0.7)
-        }
-    }
+        const nextParams = new URLSearchParams(searchParams.toString())
+        nextParams.set('set', String(video.id))
+        const nextUrl = `${pathname}?${nextParams.toString()}`
+        const navigate = mode === 'replace' ? router.replace : router.push
+        navigate(nextUrl, { scroll: false })
+        resetPlayerState()
+    }, [currentVideo?.id, pathname, resetPlayerState, router, searchParams])
 
     const clampedProgress = Math.min(100, Math.max(0, progress))
     const clampedBuffered = Math.min(100, Math.max(0, bufferedPercent))
@@ -885,17 +918,19 @@ export default function SetsClient() {
                                 </>
                             ) : videoSets.length > 0 ? (
                                 memoizedVideoSets.map((video) => (
-                                    <div
+                                    <Link
                                         key={video.id}
-                                        onClick={() => selectVideo(video)}
-                                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectVideo(video); } }}
-                                        tabIndex={0}
-                                        role="button"
+                                        href={`${pathname}?set=${video.id}`}
+                                        onClick={(e) => {
+                                            if (e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1) return
+                                            e.preventDefault()
+                                            selectVideo(video)
+                                        }}
                                         className={`p-3 rounded-lg cursor-pointer transition focus-ring ${currentVideo?.id === video.id ? 'selected-card' : 'hover:bg-gray-800'}`}
                                     >
                                         <h3 className="font-poiret-one">{video.title}</h3>
                                         <p className="text-sm text-gray-400">{video.date}</p>
-                                    </div>
+                                    </Link>
                                 ))
                             ) : (
                                 <p>No sets available</p>
