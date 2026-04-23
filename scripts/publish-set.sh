@@ -181,11 +181,12 @@ else
   die "Unsupported audio extension: .$ext (use .wav or .mp3)"
 fi
 
-echo "Muxing still image + audio to MP4 (this may take a while)..."
+echo "Muxing still image + audio to MP4 (optimized for long DJ sets)..."
 ffmpeg -hide_banner -loglevel warning -stats -y \
   -loop 1 -i "$POSTER_JPG" -i "$AUDIO_MP3" \
-  -c:v libx264 -tune stillimage -pix_fmt yuv420p \
-  -c:a aac -b:a 192k \
+  -vf "scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p,fps=1" \
+  -c:v libx264 -preset medium -tune stillimage -crf 34 \
+  -c:a aac -b:a 96k \
   -movflags +faststart \
   -shortest \
   "$OUT_MP4"
