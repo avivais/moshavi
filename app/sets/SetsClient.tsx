@@ -309,9 +309,16 @@ export default function SetsClient() {
         }
     }, [currentVideo])
 
+    const loadedSrcRef = useRef<string | null>(null)
     useEffect(() => {
         const video = videoRef.current
-        if (!video) return
+        if (!video || !currentVideo) return
+        if (loadedSrcRef.current === null) {
+            loadedSrcRef.current = currentVideo.src
+            return
+        }
+        if (loadedSrcRef.current === currentVideo.src) return
+        loadedSrcRef.current = currentVideo.src
         video.load()
     }, [currentVideo])
 
