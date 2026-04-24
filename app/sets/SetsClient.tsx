@@ -933,7 +933,7 @@ export default function SetsClient() {
                                             e.preventDefault()
                                             selectVideo(video)
                                         }}
-                                        className={`p-3 rounded-lg cursor-pointer transition focus-ring ${currentVideo?.id === video.id ? 'selected-card' : 'hover:bg-gray-800'}`}
+                                        className={`block p-3 rounded-lg cursor-pointer transition focus-ring ${currentVideo?.id === video.id ? 'selected-card' : 'hover:bg-gray-800'}`}
                                     >
                                         <h3 className="font-poiret-one">{video.title}</h3>
                                         <p className="text-sm text-gray-400">{video.date}</p>
