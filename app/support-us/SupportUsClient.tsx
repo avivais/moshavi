@@ -48,7 +48,7 @@ export default function SupportUsClient() {
                             {/* PayBox Button */}
                             <div className="flex flex-col items-center">
                                 <a
-                                    href="https://links.payboxapp.com/BF2rkpYCOUb"
+                                    href="https://links.payboxapp.com/uPaMagTT84b"
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     className="bg-blue-600 text-white px-6 py-5 rounded-lg font-semibold hover:bg-green-600 transition w-[80%] md:w-auto md:min-w-[200px] flex items-center justify-center space-x-2 mx-auto focus-ring"
@@ -59,7 +59,7 @@ export default function SupportUsClient() {
                                     <span>PayBox</span>
                                 </a>
                                 <span className="text-xs mt-1 text-gray-400" dir="rtl">
-                                    לתרומה לחצו על הכפתור
+                                    לתשלום לחצו על הכפתור
                                 </span>
                             </div>
 
@@ -123,7 +123,7 @@ export default function SupportUsClient() {
                 </div>
 
                 <p dir="rtl" className="font-karantina mb-6 text-7xl md:text-8xl">
-                    רוצים <span className="font-bold">לתרום</span> בדרך אחרת?
+                    רוצים <span className="font-bold">לשלם</span> בדרך אחרת?
                     <br />
                     דברו איתנו ב-<a href="https://chat.whatsapp.com/HX02K7Od1pMHCFJTp8Zdnc" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-green-600 transition">WhatsApp</a>
                 </p>
