@@ -46,7 +46,7 @@ for name in (".env", "ecosystem.config.js", "package.json", "package-lock.json",
 
 with (destination / "git-status.txt").open("w") as output:
     subprocess.run(
-        ["git", "status", "--short", "--branch"],
+        ["git", "--no-optional-locks", "status", "--short", "--branch"],
         cwd=app,
         check=True,
         text=True,

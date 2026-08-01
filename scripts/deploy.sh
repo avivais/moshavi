@@ -67,6 +67,10 @@ APP_PATH="$1"
 PREVIOUS_SHA="$2"
 BACKUP_DIR="$3"
 cd "$APP_PATH"
+restart_on_exit() {
+  pm2 restart moshavi --update-env >/dev/null 2>&1 || true
+}
+trap restart_on_exit EXIT
 pm2 stop moshavi >/dev/null 2>&1 || true
 if [[ -f "$BACKUP_DIR/moshavi.db" ]]; then
   sudo cp "$BACKUP_DIR/moshavi.db" "$APP_PATH/moshavi.db"
@@ -76,6 +80,7 @@ git reset --hard "$PREVIOUS_SHA"
 npm ci
 npm run build
 pm2 restart moshavi --update-env
+trap - EXIT
 REMOTE_ROLLBACK
 }
 
@@ -147,6 +152,11 @@ printf '%s\n' "$BACKUP_JSON"
 BACKUP_DIR="$(printf '%s' "$BACKUP_JSON" | json_field backup)"
 if [[ -z "$BACKUP_DIR" ]]; then
   echo "Error: production backup directory could not be resolved." >&2
+  exit 1
+fi
+
+if ! ssh "${SSH_OPTIONS[@]}" "$SSH_TARGET" "test -w '$APP_PATH/.git/index'"; then
+  echo "Error: production Git index is not writable by the deploy user." >&2
   exit 1
 fi
 
