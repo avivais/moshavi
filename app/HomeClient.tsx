@@ -57,7 +57,7 @@ export default function HomeClient() {
         <main className="min-h-screen flex flex-col items-center p-0">
             <section className="mb-4 text-center px-4 font-poiret-one">
                 <div className="text-3xl">MoshAvi #008</div>
-                <div className="text-xl">TBD</div>
+                <div className="text-xl">6.8.26 @ 20:00</div>
                 <div className="text-lg font-bonheur-royale">Music Is The Answer</div>
             </section>
 
