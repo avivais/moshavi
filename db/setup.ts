@@ -157,6 +157,26 @@ if (require.main === module) {
         } else {
             console.log('playlists table already exists');
         }
+
+        const existsSiteSettings = db.prepare<{ name: string }>("SELECT name FROM sqlite_master WHERE type='table' AND name='site_settings'").get();
+        if (!existsSiteSettings) {
+            db.exec(`
+                CREATE TABLE site_settings (
+                    id INTEGER PRIMARY KEY CHECK (id = 1),
+                    home_header TEXT NOT NULL DEFAULT '',
+                    home_subheader TEXT NOT NULL DEFAULT '',
+                    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+                )
+            `);
+            console.log('Created site_settings table');
+        } else {
+            console.log('site_settings table already exists');
+        }
+
+        db.prepare(`
+            INSERT OR IGNORE INTO site_settings (id, home_header, home_subheader)
+            VALUES (1, ?, ?)
+        `).run('MoshAvi #008', '6.8.26 @ 20:00');
     } catch (err) {
         console.error('Error setting up DB:', err);
     }

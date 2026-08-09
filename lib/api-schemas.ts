@@ -33,6 +33,12 @@ export const playlistDataSchema = z.object({
   embedId: z.string().min(1),
 });
 
+/** Admin: editable home-page header content. Empty strings intentionally hide a line. */
+export const homeHeaderDataSchema = z.object({
+  header: z.string().max(120),
+  subHeader: z.string().max(160),
+});
+
 const adminTypeSchema = z.enum(['carousel', 'videoSet', 'playlist']);
 
 /** Admin POST: { type, data } */
@@ -47,6 +53,7 @@ export const adminPutSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('carousel'), id: z.number().int().positive(), data: carouselDataSchema }),
   z.object({ type: z.literal('videoSet'), id: z.number().int().positive(), data: videoSetDataSchema }),
   z.object({ type: z.literal('playlist'), id: z.number().int().positive(), data: playlistDataSchema }),
+  z.object({ type: z.literal('homeHeader'), id: z.literal(1), data: homeHeaderDataSchema }),
 ]);
 
 /** Admin DELETE: { type, id } */

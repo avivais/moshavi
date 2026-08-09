@@ -44,10 +44,17 @@ interface Playlist {
     embedId: string
 }
 
+interface HomeHeader {
+    id: 1
+    header: string
+    subHeader: string
+}
+
 interface Data {
     carouselImages: CarouselImage[]
     videoSets: VideoSet[]
     playlists: Playlist[]
+    homeHeader: HomeHeader
 }
 
 type DataItem = CarouselImage | VideoSet | Playlist
@@ -64,6 +71,8 @@ export default function Admin() {
 
     const [form, setForm] = useState<FormData>({ type: 'playlist' })
     const [data, setData] = useState<Data | null>(null)
+    const [homeHeader, setHomeHeader] = useState({ header: '', subHeader: '' })
+    const [homeHeaderSaving, setHomeHeaderSaving] = useState(false)
 
     const [syncPreviewLoading, setSyncPreviewLoading] = useState(false)
     const [syncPreviewError, setSyncPreviewError] = useState<string | null>(null)
@@ -78,7 +87,14 @@ export default function Admin() {
         if (isAuthenticated && authToken) {
             fetch('/api/admin', { headers: { 'Authorization': authToken } })
                 .then(res => res.ok ? res.json() : null)
-                .then(d => { if (d) setData(d) })
+                .then(d => {
+                    if (d) {
+                        setData(d)
+                        if (d.homeHeader) {
+                            setHomeHeader({ header: d.homeHeader.header, subHeader: d.homeHeader.subHeader })
+                        }
+                    }
+                })
                 .catch(() => {})
         }
     }, [isAuthenticated, authToken])
@@ -122,6 +138,25 @@ export default function Admin() {
             fetch('/api/admin', { headers: { 'Authorization': authToken } }).then(res => res.json().then(setData))
         } else {
             setMessage(result.error || 'Deletion failed')
+        }
+    }
+
+    const saveHomeHeader = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!authToken) { setMessage('Authentication required'); return }
+        setHomeHeaderSaving(true)
+        try {
+            const response = await fetch('/api/admin', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', 'Authorization': authToken },
+                body: JSON.stringify({ type: 'homeHeader', id: 1, data: homeHeader }),
+            })
+            const result = await response.json()
+            setMessage(result.success ? 'Home header saved successfully' : (result.error || 'Failed to save home header'))
+        } catch {
+            setMessage('Failed to save home header')
+        } finally {
+            setHomeHeaderSaving(false)
         }
     }
 
@@ -211,6 +246,24 @@ export default function Admin() {
                 <h2 className="text-xl font-bold mb-1">Gallery &amp; Carousel</h2>
                 <p className="text-gray-400 text-sm">Manage photos, videos, uploads, and home page carousel.</p>
             </a>
+
+            <form onSubmit={saveHomeHeader} className="mb-8 p-4 bg-gray-800 rounded-lg border border-gray-700 space-y-4">
+                <div>
+                    <h2 className="text-xl font-bold">Home Page Header</h2>
+                    <p className="text-gray-400 text-sm">Leave either field empty to hide that line on the home page.</p>
+                </div>
+                <div>
+                    <label htmlFor="home-header" className="block mb-1">Header:</label>
+                    <input id="home-header" maxLength={120} value={homeHeader.header} onChange={e => setHomeHeader({ ...homeHeader, header: e.target.value })} className="w-full p-2 bg-gray-900 border border-gray-600 rounded" />
+                </div>
+                <div>
+                    <label htmlFor="home-subheader" className="block mb-1">Sub-Header:</label>
+                    <input id="home-subheader" maxLength={160} value={homeHeader.subHeader} onChange={e => setHomeHeader({ ...homeHeader, subHeader: e.target.value })} className="w-full p-2 bg-gray-900 border border-gray-600 rounded" />
+                </div>
+                <button type="submit" disabled={homeHeaderSaving} className="bg-blue-600 px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50">
+                    {homeHeaderSaving ? 'Saving…' : 'Save Home Header'}
+                </button>
+            </form>
 
             {/* Add / Edit form */}
             <form onSubmit={handleSubmit} className="space-y-4 mb-8">

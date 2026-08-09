@@ -12,8 +12,11 @@ export async function GET(request: Request) {
         const carouselImages = db.prepare('SELECT * FROM carousel_images').all()
         const videoSets = db.prepare('SELECT * FROM video_sets').all()
         const playlists = db.prepare('SELECT * FROM playlists').all()
+        const homeHeader = db.prepare(
+            'SELECT id, home_header AS header, home_subheader AS subHeader FROM site_settings WHERE id = 1'
+        ).get()
 
-        return NextResponse.json({ carouselImages, videoSets, playlists })
+        return NextResponse.json({ carouselImages, videoSets, playlists, homeHeader })
     } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to fetch data'
         console.error('Admin GET error:', errorMessage)
@@ -83,6 +86,13 @@ export async function PUT(request: Request) {
                 break
             case 'playlist':
                 db.prepare('UPDATE playlists SET month = ?, year = ?, embedId = ? WHERE id = ?').run(data.month, data.year, data.embedId, id)
+                break
+            case 'homeHeader':
+                db.prepare(`
+                    UPDATE site_settings
+                    SET home_header = ?, home_subheader = ?, updated_at = datetime('now')
+                    WHERE id = ?
+                `).run(data.header.trim(), data.subHeader.trim(), id)
                 break
         }
         return NextResponse.json({ success: true })

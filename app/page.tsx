@@ -1,5 +1,8 @@
 import { Metadata } from 'next'
-import HomeClient from './HomeClient' // We'll create this next
+import HomeClient from './HomeClient'
+import db from '../database'
+
+export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
     title: 'MoshAvi Productions | Home',
@@ -28,5 +31,21 @@ export const metadata: Metadata = {
 }
 
 export default function Home() {
-    return <HomeClient />
+    let header = 'MoshAvi #008'
+    let subHeader = '6.8.26 @ 20:00'
+
+    try {
+        const row = db.prepare(
+            'SELECT home_header AS header, home_subheader AS subHeader FROM site_settings WHERE id = 1'
+        ).get() as { header: string; subHeader: string } | undefined
+
+        if (row) {
+            header = row.header
+            subHeader = row.subHeader
+        }
+    } catch {
+        // Preserve the existing copy until db:setup creates the settings table.
+    }
+
+    return <HomeClient header={header} subHeader={subHeader} />
 }

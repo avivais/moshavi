@@ -16,7 +16,12 @@ interface CarouselItem {
     height: number;
 }
 
-export default function HomeClient() {
+interface HomeClientProps {
+    header: string;
+    subHeader: string;
+}
+
+export default function HomeClient({ header, subHeader }: HomeClientProps) {
     const [items, setItems] = useState<CarouselItem[]>([])
     const [error, setError] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
@@ -56,8 +61,8 @@ export default function HomeClient() {
     return (
         <main className="min-h-screen flex flex-col items-center p-0">
             <section className="mb-4 text-center px-4 font-poiret-one">
-                <div className="text-3xl">MoshAvi #008</div>
-                <div className="text-xl">6.8.26 @ 20:00</div>
+                {header && <div className="text-3xl">{header}</div>}
+                {subHeader && <div className="text-xl">{subHeader}</div>}
                 <div className="text-lg font-bonheur-royale">Music Is The Answer</div>
             </section>
 
