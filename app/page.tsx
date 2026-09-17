@@ -15,9 +15,9 @@ export const metadata: Metadata = {
         siteName: 'MoshAvi',
         images: [
             {
-                url: 'https://www.moshavi.com/media/og/home.jpg',
-                width: 1200,
-                height: 630,
+                url: 'https://www.moshavi.com/media/og/home.jpg?v=guest-session-20261002-full',
+                width: 1280,
+                height: 853,
                 alt: 'MoshAvi Productions | Home',
             },
         ],
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
         card: 'summary_large_image',
         title: 'MoshAvi Productions | Home',
         description: 'Music is the Answer!',
-        images: ['https://www.moshavi.com/media/og/home.jpg'],
+        images: ['https://www.moshavi.com/media/og/home.jpg?v=guest-session-20261002-full'],
     },
 }
 
